@@ -834,4 +834,145 @@ defineExpose({ stopAudio })
   justify-content: center;
   padding: 2rem;
 }
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .phase-header {
+    margin-bottom: 0.75rem;
+  }
+  
+  .phase-icon {
+    font-size: 2rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .phase-header h2 {
+    font-size: 1.1rem;
+    margin: 0 0 0.25rem 0;
+  }
+  
+  .phase-header p {
+    font-size: 0.85rem;
+  }
+  
+  .selection-area {
+    flex: 1;
+    min-height: 0;
+  }
+  
+  .playlists-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+  }
+  
+  .tracks-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    max-height: none;
+  }
+  
+  .track-choice {
+    padding: 0.5rem;
+  }
+  
+  .track-choice img {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .track-choice .track-name {
+    font-size: 0.85rem;
+  }
+  
+  .track-choice .track-artist {
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .phase-header {
+    margin-bottom: 0.5rem;
+  }
+  
+  .phase-icon {
+    font-size: 1.5rem;
+  }
+  
+  .phase-header h2 {
+    font-size: 1rem;
+  }
+  
+  .phase-header p {
+    font-size: 0.8rem;
+  }
+  
+  .playlists-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  
+  .playlist-card {
+    padding: 0.5rem;
+  }
+  
+  .playlist-name {
+    font-size: 0.75rem;
+  }
+  
+  .search-bar {
+    margin-bottom: 0.75rem;
+  }
+  
+  .search-bar input {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+  }
+  
+  .search-bar button {
+    padding: 0.6rem 1rem;
+    font-size: 1rem;
+  }
+  
+  .track-to-draw {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+  
+  .track-to-draw img {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .track-to-draw .track-name {
+    font-size: 0.95rem;
+  }
+  
+  .track-to-draw .track-artist {
+    font-size: 0.8rem;
+  }
+  
+  .guess-header {
+    padding: 0.75rem;
+  }
+  
+  .guess-header .icon {
+    font-size: 1.5rem;
+  }
+  
+  .guess-header p {
+    font-size: 0.9rem;
+  }
+  
+  .play-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+  
+  .play-preview-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 0.9rem;
+  }
+}
 </style>
