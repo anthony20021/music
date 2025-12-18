@@ -34,6 +34,16 @@ const isSearching = ref(false)
 const selectedPlaylist = ref(null)
 const isLoadingTracks = ref(false)
 
+// Réinitialiser l'état de sélection quand on passe à la phase de dessin
+watch(() => props.game2Role, (newRole) => {
+  if (newRole) {
+    selectedPlaylist.value = null
+    playlists.value = []
+    searchQuery.value = ''
+    isLoadingTracks.value = false
+  }
+})
+
 // Audio
 const currentAudio = ref(null)
 const playingTrackId = ref(null)
@@ -68,6 +78,10 @@ const selectPlaylist = async (playlist) => {
       const randomTrack = tracks[Math.floor(Math.random() * tracks.length)]
       // Envoie la track sélectionnée ET toutes les tracks de la playlist
       emit('game2SetTrack', { track: randomTrack, playlistTracks: tracks })
+      // Réinitialise la sélection pour passer à la phase suivante
+      selectedPlaylist.value = null
+      playlists.value = []
+      searchQuery.value = ''
     } else {
       selectedPlaylist.value = null
     }
