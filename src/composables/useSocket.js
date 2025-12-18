@@ -28,6 +28,7 @@ const game2Strokes = shallowRef([])
 const game2Result = shallowRef(null)
 const game2ReadyCount = ref(0)
 const game2PlaylistTracks = shallowRef([])
+const game2NextChooser = ref(null) // ID du joueur qui doit choisir la playlist
 
 socket.on('connect', () => {
   isConnected.value = true
@@ -56,13 +57,16 @@ socket.on('chat-message', (message) => {
   triggerRef(messages)
 })
 
-socket.on('game-started', ({ theme, mode }) => {
+socket.on('game-started', ({ theme, mode, game2NextChooser: nextChooserId }) => {
   gameStarted.value = true
   currentMode.value = mode
   currentTheme.value = theme
   opponentReady.value = false
   roundResult.value = null
   readyCount.value = 0
+  if (nextChooserId) {
+    game2NextChooser.value = nextChooserId
+  }
 })
 
 socket.on('theme-update', (theme) => {
@@ -147,12 +151,14 @@ socket.on('game2-ready-count', (count) => {
   game2ReadyCount.value = count
 })
 
-socket.on('game2-new-round', () => {
+socket.on('game2-new-round', ({ nextChooser }) => {
   game2Role.value = null
   game2Track.value = null
   game2Strokes.value = []
   game2Result.value = null
   game2ReadyCount.value = 0
+  game2NextChooser.value = nextChooser
+  triggerRef(game2Strokes)
 })
 
 export function useSocket() {
@@ -253,6 +259,7 @@ export function useSocket() {
     game2Result,
     game2ReadyCount,
     game2PlaylistTracks,
+    game2NextChooser,
     game2SetTrack,
     game2DrawStroke,
     game2ClearCanvas,

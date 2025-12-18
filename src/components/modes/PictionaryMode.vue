@@ -2,6 +2,9 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { searchPlaylists, getPlaylistTracks } from '../../services/spotify'
 import DrawCanvas from '../DrawCanvas.vue'
+import { useSocket } from '../../composables/useSocket'
+
+const { socket } = useSocket()
 
 const props = defineProps({
   roomId: String,
@@ -15,6 +18,7 @@ const props = defineProps({
   game2Result: Object,
   game2ReadyCount: Number,
   game2PlaylistTracks: Array,
+  game2NextChooser: String,
   scores: Object
 })
 
@@ -25,6 +29,11 @@ const phase = computed(() => {
   if (props.game2Result) return 'result'
   if (props.game2Role) return 'drawing'
   return 'select'
+})
+
+// Vérifier si c'est mon tour de choisir la playlist
+const isMyTurnToChoose = computed(() => {
+  return props.game2NextChooser && socket.id === props.game2NextChooser
 })
 
 // Sélection du thème
@@ -158,11 +167,11 @@ defineExpose({ stopAudio })
       <div class="phase-header">
         <span class="phase-icon">🎨</span>
         <h2>Pictionary Musical</h2>
-        <p v-if="isCreator">Choisis un thème, le jeu piochera une musique au hasard !</p>
+        <p v-if="isMyTurnToChoose">Choisis un thème, le jeu piochera une musique au hasard !</p>
         <p v-else>{{ otherPlayer?.pseudo }} choisit la musique...</p>
       </div>
 
-      <div v-if="isCreator" class="selection-area">
+      <div v-if="isMyTurnToChoose" class="selection-area">
         <!-- Chargement des tracks -->
         <div v-if="isLoadingTracks" class="loading-selection">
           <div class="loader"></div>

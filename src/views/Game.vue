@@ -12,7 +12,7 @@ const {
   roundResult, scores, readyCount, skipCount, isCreator,
   joinRoom, leaveRoom, sendMessage, submitTracks, readyNextRound, skipRound,
   // Game 2
-  game2Role, game2Track, game2Strokes, game2Result, game2ReadyCount, game2PlaylistTracks,
+  game2Role, game2Track, game2Strokes, game2Result, game2ReadyCount, game2PlaylistTracks, game2NextChooser,
   game2SetTrack, game2DrawStroke, game2ClearCanvas, game2Guess, game2NextRound
 } = useSocket()
 
@@ -152,6 +152,7 @@ const handleGame2NextRound = () => {
             :game2Result="game2Result"
             :game2ReadyCount="game2ReadyCount"
             :game2PlaylistTracks="game2PlaylistTracks"
+            :game2NextChooser="game2NextChooser"
             @submit="handleSubmit"
             @nextRound="handleNextRound"
             @skip="handleSkip"

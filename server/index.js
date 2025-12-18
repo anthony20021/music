@@ -128,7 +128,11 @@ io.on('connection', (socket) => {
     socket.emit('chat-history', room.messages)
     
     if (room.theme) {
-      socket.emit('game-started', { theme: room.theme, mode: room.mode })
+      if (room.mode === 'pictionary' && room.game2NextChooser) {
+        socket.emit('game-started', { theme: room.theme, mode: room.mode, game2NextChooser: room.game2NextChooser })
+      } else {
+        socket.emit('game-started', { theme: room.theme, mode: room.mode })
+      }
       socket.emit('scores-update', room.scores)
     }
     
@@ -152,7 +156,14 @@ io.on('connection', (socket) => {
       room.theme = getRandomTheme()
       room.submissions = {}
       room.readyForNext = []
-      io.to(roomId).emit('game-started', { theme: room.theme, mode: room.mode })
+      
+      // Pour le mode Pictionary, initialiser qui choisit la playlist (le créateur au début)
+      if (mode === 'pictionary') {
+        room.game2NextChooser = room.creator
+        io.to(roomId).emit('game-started', { theme: room.theme, mode: room.mode, game2NextChooser: room.game2NextChooser })
+      } else {
+        io.to(roomId).emit('game-started', { theme: room.theme, mode: room.mode })
+      }
     }
   })
 
@@ -215,6 +226,11 @@ io.on('connection', (socket) => {
   socket.on('game2-set-track', ({ roomId, track, playlistTracks }) => {
     const room = rooms.get(roomId)
     if (room) {
+      // Vérifier que c'est bien le joueur qui doit choisir
+      if (room.game2NextChooser && room.game2NextChooser !== socket.id) {
+        return // Ce n'est pas ton tour de choisir
+      }
+      
       room.game2Track = track
       room.game2PlaylistTracks = playlistTracks || []
       room.game2Drawer = room.players.find(p => p.id !== socket.id)?.id
@@ -298,8 +314,25 @@ io.on('connection', (socket) => {
       
       if (room.game2Ready.length === 2) {
         room.game2Ready = []
-        // Inverser les rôles
-        io.to(roomId).emit('game2-new-round')
+        
+        // Alterner qui choisit la playlist (celui qui n'a pas choisi la dernière fois)
+        if (room.game2NextChooser) {
+          const otherPlayer = room.players.find(p => p.id !== room.game2NextChooser)
+          room.game2NextChooser = otherPlayer?.id || room.creator
+        } else {
+          // Si pas encore défini, alterner depuis le créateur
+          const currentChooser = room.game2Guesser || room.creator
+          const otherPlayer = room.players.find(p => p.id !== currentChooser)
+          room.game2NextChooser = otherPlayer?.id || room.creator
+        }
+        
+        // Réinitialiser l'état du jeu
+        room.game2Track = null
+        room.game2PlaylistTracks = []
+        room.game2Drawer = null
+        room.game2Guesser = null
+        
+        io.to(roomId).emit('game2-new-round', { nextChooser: room.game2NextChooser })
       }
     }
   })
