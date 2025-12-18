@@ -2,7 +2,7 @@ import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import cors from 'cors'
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import spotifyUrlInfo from 'spotify-url-info'
@@ -13,9 +13,17 @@ const { getTracks } = spotifyUrlInfo(fetch)
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const themes = JSON.parse(readFileSync(join(__dirname, '../src/data/themes.json'), 'utf-8')).themes
 
+const PORT = process.env.PORT || 3001
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+
 const app = express()
-app.use(cors())
+app.use(cors({ origin: FRONTEND_URL }))
 app.use(express.json())
+
+const distPath = join(__dirname, '../dist')
+if (existsSync(distPath)) {
+  app.use(express.static(distPath))
+}
 
 app.get('/api/preview/:trackId', async (req, res) => {
   try {
@@ -35,7 +43,7 @@ app.get('/api/preview/:trackId', async (req, res) => {
 const server = createServer(app)
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: FRONTEND_URL,
     methods: ["GET", "POST"]
   }
 })
@@ -201,5 +209,12 @@ io.on('connection', (socket) => {
   }
 })
 
-const PORT = 3001
-server.listen(PORT)
+if (existsSync(distPath)) {
+  app.get('*', (req, res) => {
+    res.sendFile(join(distPath, 'index.html'))
+  })
+}
+
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`)
+})
