@@ -11,6 +11,7 @@ const socket = io(SERVER_URL, {
 const players = shallowRef([])
 const messages = shallowRef([])
 const isConnected = ref(false)
+const socketId = ref(socket.id || null)
 const gameStarted = ref(false)
 const currentMode = ref(null)
 const currentTheme = ref(null)
@@ -32,6 +33,7 @@ const game2NextChooser = ref(null) // ID du joueur qui doit choisir la playlist
 
 socket.on('connect', () => {
   isConnected.value = true
+  socketId.value = socket.id
 })
 
 socket.on('disconnect', () => {
@@ -40,6 +42,10 @@ socket.on('disconnect', () => {
   messages.value = []
   triggerRef(players)
   triggerRef(messages)
+})
+
+socket.on('reconnect', () => {
+  socketId.value = socket.id
 })
 
 socket.on('players-update', (updatedPlayers) => {
@@ -233,6 +239,7 @@ export function useSocket() {
 
   return {
     socket,
+    socketId,
     players,
     messages,
     isConnected,

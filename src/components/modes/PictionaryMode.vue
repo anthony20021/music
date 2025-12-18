@@ -4,7 +4,7 @@ import { searchPlaylists, getPlaylistTracks } from '../../services/spotify'
 import DrawCanvas from '../DrawCanvas.vue'
 import { useSocket } from '../../composables/useSocket'
 
-const { socket } = useSocket()
+const { socketId } = useSocket()
 
 const props = defineProps({
   roomId: String,
@@ -33,7 +33,7 @@ const phase = computed(() => {
 
 // Vérifier si c'est mon tour de choisir la playlist
 const isMyTurnToChoose = computed(() => {
-  return props.game2NextChooser && socket.id === props.game2NextChooser
+  return props.game2NextChooser && socketId.value === props.game2NextChooser
 })
 
 // Sélection du thème
