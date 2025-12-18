@@ -25,12 +25,11 @@ const enterGame = () => {
     <div class="content">
       <div class="logo">
         <span class="icon">🎵</span>
-        <h1>Music Match</h1>
+        <h1>Music Games</h1>
       </div>
       
       <p class="tagline">
-        Choisis <strong>3 musiques</strong> sur un thème.<br>
-        Matche au moins <strong>une musique</strong> avec ton ami pour gagner !
+        Joue avec tes amis autour de la musique !
       </p>
       
       <div class="input-container">
