@@ -12,6 +12,7 @@ const players = shallowRef([])
 const messages = shallowRef([])
 const isConnected = ref(false)
 const gameStarted = ref(false)
+const currentMode = ref(null)
 const currentTheme = ref(null)
 const opponentReady = ref(false)
 const roundResult = shallowRef(null)
@@ -46,8 +47,9 @@ socket.on('chat-message', (message) => {
   triggerRef(messages)
 })
 
-socket.on('game-started', ({ theme }) => {
+socket.on('game-started', ({ theme, mode }) => {
   gameStarted.value = true
+  currentMode.value = mode
   currentTheme.value = theme
   opponentReady.value = false
   roundResult.value = null
@@ -106,6 +108,7 @@ export function useSocket() {
     players.value = []
     messages.value = []
     gameStarted.value = false
+    currentMode.value = null
     currentTheme.value = null
     opponentReady.value = false
     roundResult.value = null
@@ -121,8 +124,8 @@ export function useSocket() {
     }
   }
 
-  const startGame = (roomId) => {
-    socket.emit('start-game', { roomId })
+  const startGame = (roomId, mode = 'match') => {
+    socket.emit('start-game', { roomId, mode })
   }
 
   const submitTracks = (roomId, tracks) => {
@@ -143,6 +146,7 @@ export function useSocket() {
     messages,
     isConnected,
     gameStarted,
+    currentMode,
     currentTheme,
     opponentReady,
     roundResult,

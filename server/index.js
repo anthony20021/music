@@ -95,6 +95,7 @@ io.on('connection', (socket) => {
       rooms.set(roomId, { 
         players: [], 
         messages: [],
+        mode: null,
         theme: null,
         submissions: {},
         scores: {},
@@ -120,13 +121,14 @@ io.on('connection', (socket) => {
     }
   })
 
-  socket.on('start-game', ({ roomId }) => {
+  socket.on('start-game', ({ roomId, mode }) => {
     const room = rooms.get(roomId)
     if (room) {
+      room.mode = mode || 'match'
       room.theme = getRandomTheme()
       room.submissions = {}
       room.readyForNext = []
-      io.to(roomId).emit('game-started', { theme: room.theme })
+      io.to(roomId).emit('game-started', { theme: room.theme, mode: room.mode })
     }
   })
 

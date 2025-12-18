@@ -11,6 +11,12 @@ const pseudo = ref('')
 const roomId = computed(() => route.params.roomId)
 const copiedCode = ref(false)
 const copiedLink = ref(false)
+const selectedMode = ref('match')
+
+const gameModes = [
+  { id: 'match', name: 'Match', icon: '🎯', desc: 'Trouvez les mêmes chansons' },
+  { id: 'game2', name: 'Jeu 2', icon: '🎲', desc: 'Bientôt disponible...' }
+]
 
 // L'autre joueur (pas nous)
 const otherPlayer = computed(() => {
@@ -52,7 +58,7 @@ const copyRoomLink = async () => {
 }
 
 const handleStartGame = () => {
-  startGame(roomId.value)
+  startGame(roomId.value, selectedMode.value)
 }
 </script>
 
@@ -89,6 +95,23 @@ const handleStartGame = () => {
       <div v-else class="ready">
         <span class="ready-icon">🎉</span>
         <p>Vous êtes prêts !</p>
+        
+        <div class="mode-selector">
+          <p class="mode-label">Choisis un mode :</p>
+          <div class="modes">
+            <button 
+              v-for="mode in gameModes" 
+              :key="mode.id"
+              class="mode-btn"
+              :class="{ active: selectedMode === mode.id }"
+              @click="selectedMode = mode.id"
+            >
+              <span class="mode-icon">{{ mode.icon }}</span>
+              <span class="mode-name">{{ mode.name }}</span>
+              <span class="mode-desc">{{ mode.desc }}</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="players">
@@ -393,5 +416,65 @@ h1 {
 .btn-back:hover {
   background: rgba(255, 255, 255, 0.15);
   color: white;
+}
+
+.mode-selector {
+  margin-top: 1.5rem;
+}
+
+.mode-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.modes {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.mode-btn:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mode-btn.active {
+  border-color: #00d9ff;
+  background: rgba(0, 217, 255, 0.15);
+}
+
+.mode-icon {
+  font-size: 1.5rem;
+}
+
+.mode-name {
+  color: white;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.mode-desc {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 480px) {
+  .modes {
+    flex-direction: column;
+  }
 }
 </style>
