@@ -13,6 +13,7 @@ const ctx = ref(null)
 const isDrawing = ref(false)
 const currentColor = ref('#ffffff')
 const brushSize = ref(4)
+const lastPos = ref(null)
 
 const colors = ['#ffffff', '#e94560', '#00d9ff', '#4ade80', '#fbbf24', '#a855f7', '#000000']
 
@@ -32,7 +33,7 @@ watch(() => props.strokes, (newStrokes) => {
     if (lastStroke.type === 'clear') {
       clearCanvas(false)
     } else {
-      drawStroke(lastStroke)
+      drawSegment(lastStroke)
     }
   }
 }, { deep: true })
@@ -58,56 +59,45 @@ const getPos = (e) => {
 const startDrawing = (e) => {
   if (!props.canDraw) return
   isDrawing.value = true
-  const pos = getPos(e)
-  ctx.value.beginPath()
-  ctx.value.moveTo(pos.x * canvas.value.width, pos.y * canvas.value.height)
-  
-  // Envoyer le point de départ
-  const stroke = {
-    type: 'start',
-    x: pos.x,
-    y: pos.y,
-    color: currentColor.value,
-    size: brushSize.value
-  }
-  emit('stroke', stroke)
+  lastPos.value = getPos(e)
 }
 
 const draw = (e) => {
   if (!isDrawing.value || !props.canDraw) return
   e.preventDefault()
   
-  const pos = getPos(e)
-  const stroke = {
-    x: pos.x,
-    y: pos.y,
+  const currentPos = getPos(e)
+  
+  const segment = {
+    fromX: lastPos.value.x,
+    fromY: lastPos.value.y,
+    toX: currentPos.x,
+    toY: currentPos.y,
     color: currentColor.value,
     size: brushSize.value
   }
   
-  drawStroke(stroke)
-  emit('stroke', stroke)
+  drawSegment(segment)
+  emit('stroke', segment)
+  
+  lastPos.value = currentPos
 }
 
 const stopDrawing = () => {
   isDrawing.value = false
+  lastPos.value = null
 }
 
-const drawStroke = (stroke) => {
-  ctx.value.strokeStyle = stroke.color
-  ctx.value.lineWidth = stroke.size
+const drawSegment = (segment) => {
+  const w = canvas.value.width
+  const h = canvas.value.height
   
-  if (stroke.type === 'start') {
-    // Nouveau trait : juste positionner le curseur
-    ctx.value.beginPath()
-    ctx.value.moveTo(stroke.x * canvas.value.width, stroke.y * canvas.value.height)
-  } else {
-    // Continuer le trait
-    ctx.value.lineTo(stroke.x * canvas.value.width, stroke.y * canvas.value.height)
-    ctx.value.stroke()
-    ctx.value.beginPath()
-    ctx.value.moveTo(stroke.x * canvas.value.width, stroke.y * canvas.value.height)
-  }
+  ctx.value.strokeStyle = segment.color
+  ctx.value.lineWidth = segment.size
+  ctx.value.beginPath()
+  ctx.value.moveTo(segment.fromX * w, segment.fromY * h)
+  ctx.value.lineTo(segment.toX * w, segment.toY * h)
+  ctx.value.stroke()
 }
 
 const clearCanvas = (emitEvent = true) => {
@@ -268,4 +258,3 @@ canvas.drawing {
   background: rgba(233, 69, 96, 0.4);
 }
 </style>
-
