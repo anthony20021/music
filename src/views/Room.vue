@@ -5,7 +5,7 @@ import { useSocket } from '../composables/useSocket'
 
 const route = useRoute()
 const router = useRouter()
-const { players, isConnected, gameStarted, joinRoom, leaveRoom, startGame } = useSocket()
+const { players, isConnected, gameStarted, isCreator, joinRoom, leaveRoom, startGame } = useSocket()
 
 const pseudo = ref('')
 const roomId = computed(() => route.params.roomId)
@@ -96,7 +96,7 @@ const handleStartGame = () => {
         <span class="ready-icon">🎉</span>
         <p>Vous êtes prêts !</p>
         
-        <div class="mode-selector">
+        <div v-if="isCreator" class="mode-selector">
           <p class="mode-label">Choisis un mode :</p>
           <div class="modes">
             <button 
@@ -111,6 +111,9 @@ const handleStartGame = () => {
               <span class="mode-desc">{{ mode.desc }}</span>
             </button>
           </div>
+        </div>
+        <div v-else class="waiting-host">
+          <p>{{ otherPlayer?.pseudo }} choisit le mode...</p>
         </div>
       </div>
 
@@ -127,12 +130,16 @@ const handleStartGame = () => {
 
       <div class="actions">
         <button 
-          v-if="otherPlayer" 
+          v-if="otherPlayer && isCreator" 
           class="btn-start" 
           @click="handleStartGame"
         >
           🎵 Commencer la partie
         </button>
+        
+        <p v-if="otherPlayer && !isCreator" class="waiting-start-msg">
+          En attente du lancement...
+        </p>
 
         <button class="btn-back" @click="router.push('/lobby')">
           ← Retour au lobby
@@ -420,6 +427,27 @@ h1 {
 
 .mode-selector {
   margin-top: 1.5rem;
+}
+
+.waiting-host {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(0, 217, 255, 0.1);
+  border: 1px solid rgba(0, 217, 255, 0.2);
+  border-radius: 12px;
+}
+
+.waiting-host p {
+  color: #00d9ff;
+  margin: 0;
+  font-weight: 500;
+}
+
+.waiting-start-msg {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.95rem;
+  margin: 0;
+  padding: 1rem;
 }
 
 .mode-label {

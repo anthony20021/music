@@ -95,6 +95,7 @@ io.on('connection', (socket) => {
       rooms.set(roomId, { 
         players: [], 
         messages: [],
+        creator: socket.id,
         mode: null,
         theme: null,
         submissions: {},
@@ -113,6 +114,7 @@ io.on('connection', (socket) => {
     }
     
     io.to(roomId).emit('players-update', room.players)
+    socket.emit('room-info', { isCreator: room.creator === socket.id })
     socket.emit('chat-history', room.messages)
     
     if (room.theme) {

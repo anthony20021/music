@@ -19,6 +19,7 @@ const roundResult = shallowRef(null)
 const scores = shallowRef({})
 const readyCount = ref(0)
 const skipCount = ref(0)
+const isCreator = ref(false)
 
 socket.on('connect', () => {
   isConnected.value = true
@@ -92,6 +93,10 @@ socket.on('skip-count', (count) => {
   skipCount.value = count
 })
 
+socket.on('room-info', ({ isCreator: creator }) => {
+  isCreator.value = creator
+})
+
 export function useSocket() {
   const joinRoom = (roomId, pseudo) => {
     if (socket.connected) {
@@ -114,6 +119,7 @@ export function useSocket() {
     roundResult.value = null
     scores.value = {}
     readyCount.value = 0
+    isCreator.value = false
     triggerRef(players)
     triggerRef(messages)
   }
@@ -153,6 +159,7 @@ export function useSocket() {
     scores,
     readyCount,
     skipCount,
+    isCreator,
     joinRoom,
     leaveRoom,
     sendMessage,
