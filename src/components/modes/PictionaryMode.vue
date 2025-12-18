@@ -14,6 +14,7 @@ const props = defineProps({
   game2Strokes: Array,
   game2Result: Object,
   game2ReadyCount: Number,
+  game2PlaylistTracks: Array,
   scores: Object
 })
 
@@ -31,11 +32,7 @@ const searchQuery = ref('')
 const playlists = ref([])
 const isSearching = ref(false)
 const selectedPlaylist = ref(null)
-const playlistTracks = ref([])
 const isLoadingTracks = ref(false)
-
-// Guess
-const guessInput = ref('')
 
 // Audio
 const currentAudio = ref(null)
@@ -65,7 +62,15 @@ const selectPlaylist = async (playlist) => {
   isLoadingTracks.value = true
   try {
     // Récupère les 5 premières tracks (les plus populaires)
-    playlistTracks.value = await getPlaylistTracks(playlist.id, 5)
+    const tracks = await getPlaylistTracks(playlist.id, 5)
+    if (tracks.length > 0) {
+      // Choisit une track au hasard
+      const randomTrack = tracks[Math.floor(Math.random() * tracks.length)]
+      // Envoie la track sélectionnée ET toutes les tracks de la playlist
+      emit('game2SetTrack', { track: randomTrack, playlistTracks: tracks })
+    } else {
+      selectedPlaylist.value = null
+    }
   } catch (e) {
     console.error(e)
     selectedPlaylist.value = null
@@ -73,13 +78,8 @@ const selectPlaylist = async (playlist) => {
   isLoadingTracks.value = false
 }
 
-const selectTrack = (track) => {
-  emit('game2SetTrack', track)
-}
-
 const backToPlaylists = () => {
   selectedPlaylist.value = null
-  playlistTracks.value = []
 }
 
 const handleStroke = (stroke) => {
@@ -90,11 +90,9 @@ const handleClear = () => {
   emit('game2ClearCanvas')
 }
 
-const handleGuess = () => {
-  if (guessInput.value.trim()) {
-    emit('game2Guess', guessInput.value)
-    guessInput.value = ''
-  }
+const handleSelectTrack = (track) => {
+  // Envoyer le nom de la track comme guess
+  emit('game2Guess', track.name)
 }
 
 const handleNextRound = () => {
@@ -102,7 +100,6 @@ const handleNextRound = () => {
   playlists.value = []
   searchQuery.value = ''
   selectedPlaylist.value = null
-  playlistTracks.value = []
   stopAudio()
 }
 
@@ -155,35 +152,7 @@ defineExpose({ stopAudio })
         <!-- Chargement des tracks -->
         <div v-if="isLoadingTracks" class="loading-selection">
           <div class="loader"></div>
-          <p>Chargement des musiques...</p>
-        </div>
-        
-        <!-- Sélection d'une track dans la playlist -->
-        <div v-else-if="selectedPlaylist" class="track-selection">
-          <button class="back-btn" @click="backToPlaylists">
-            ← Retour aux playlists
-          </button>
-          <h3>{{ selectedPlaylist.name }}</h3>
-          <p class="selection-hint">Choisis la musique à faire deviner :</p>
-          
-          <div class="tracks-list">
-            <div 
-              v-for="track in playlistTracks" 
-              :key="track.id"
-              class="track-card"
-              @click="selectTrack(track)"
-            >
-              <img :src="track.image" :alt="track.name" />
-              <div class="track-info">
-                <span class="track-name">{{ track.name }}</span>
-                <span class="track-artist">{{ track.artist }}</span>
-              </div>
-            </div>
-          </div>
-          
-          <p v-if="playlistTracks.length === 0" class="no-tracks">
-            Aucune musique trouvée dans cette playlist 😕
-          </p>
+          <p>Sélection d'une musique au hasard...</p>
         </div>
         
         <!-- Recherche de playlists -->
@@ -256,16 +225,29 @@ defineExpose({ stopAudio })
           :canDraw="false"
           :strokes="game2Strokes"
         />
-        <div class="guess-input">
-          <input 
-            v-model="guessInput"
-            type="text"
-            placeholder="Titre ou artiste..."
-            @keyup.enter="handleGuess"
-          />
-          <button @click="handleGuess" :disabled="!guessInput.trim()">
-            Deviner !
-          </button>
+        <div class="guess-selection">
+          <p class="selection-label">Choisis la musique dans la playlist :</p>
+          <div class="tracks-grid">
+            <div 
+              v-for="track in game2PlaylistTracks" 
+              :key="track.id"
+              class="track-choice"
+              @click="handleSelectTrack(track)"
+            >
+              <img :src="track.image" :alt="track.name" />
+              <div class="track-info">
+                <span class="track-name">{{ track.name }}</span>
+                <span class="track-artist">{{ track.artist }}</span>
+              </div>
+              <button 
+                v-if="track.previewUrl"
+                class="play-preview-btn"
+                @click.stop="playingTrackId === track.id ? stopAudio() : playPreview(track)"
+              >
+                {{ playingTrackId === track.id ? '⏸️' : '▶️' }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -637,38 +619,90 @@ defineExpose({ stopAudio })
   font-weight: 500;
 }
 
-.guess-input {
-  display: flex;
-  gap: 0.5rem;
+.guess-selection {
   margin-top: 1rem;
 }
 
-.guess-input input {
-  flex: 1;
-  padding: 1rem;
-  font-size: 1rem;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+.selection-label {
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.tracks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.track-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
   background: rgba(255, 255, 255, 0.05);
-  color: white;
-  outline: none;
-  font-family: inherit;
-}
-
-.guess-input input:focus { border-color: #00d9ff; }
-
-.guess-input button {
-  padding: 1rem 1.5rem;
-  border: none;
   border-radius: 10px;
-  background: linear-gradient(135deg, #e94560, #ff6b35);
-  color: white;
-  font-weight: 600;
   cursor: pointer;
-  font-family: inherit;
+  transition: all 0.2s;
+  border: 2px solid transparent;
 }
 
-.guess-input button:disabled { opacity: 0.5; }
+.track-choice:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(168, 85, 247, 0.4);
+  transform: translateY(-2px);
+}
+
+.track-choice img {
+  width: 50px;
+  height: 50px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.track-choice .track-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.track-choice .track-name {
+  display: block;
+  color: white;
+  font-weight: 500;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-choice .track-artist {
+  display: block;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+}
+
+.play-preview-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 217, 255, 0.2);
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.play-preview-btn:hover {
+  background: rgba(0, 217, 255, 0.4);
+  transform: scale(1.1);
+}
 
 /* Result Phase */
 .result-phase {

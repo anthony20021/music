@@ -27,6 +27,7 @@ const game2Track = shallowRef(null)
 const game2Strokes = shallowRef([])
 const game2Result = shallowRef(null)
 const game2ReadyCount = ref(0)
+const game2PlaylistTracks = shallowRef([])
 
 socket.on('connect', () => {
   isConnected.value = true
@@ -120,6 +121,11 @@ socket.on('game2-wait-drawing', () => {
   game2Result.value = null
 })
 
+socket.on('game2-playlist-tracks', ({ tracks }) => {
+  game2PlaylistTracks.value = tracks
+  triggerRef(game2PlaylistTracks)
+})
+
 socket.on('game2-stroke', (stroke) => {
   game2Strokes.value = [...game2Strokes.value, stroke]
   triggerRef(game2Strokes)
@@ -199,8 +205,8 @@ export function useSocket() {
   }
 
   // Game 2 functions
-  const game2SetTrack = (roomId, track) => {
-    socket.emit('game2-set-track', { roomId, track })
+  const game2SetTrack = (roomId, data) => {
+    socket.emit('game2-set-track', { roomId, ...data })
   }
 
   const game2DrawStroke = (roomId, stroke) => {
@@ -246,6 +252,7 @@ export function useSocket() {
     game2Strokes,
     game2Result,
     game2ReadyCount,
+    game2PlaylistTracks,
     game2SetTrack,
     game2DrawStroke,
     game2ClearCanvas,

@@ -131,6 +131,18 @@ io.on('connection', (socket) => {
       socket.emit('game-started', { theme: room.theme, mode: room.mode })
       socket.emit('scores-update', room.scores)
     }
+    
+    // Si le jeu Pictionary a déjà commencé, envoyer les infos
+    if (room.game2Track) {
+      if (room.game2Drawer === socket.id) {
+        socket.emit('game2-start-drawing', { track: room.game2Track })
+      } else if (room.game2Guesser === socket.id) {
+        socket.emit('game2-wait-drawing')
+        if (room.game2PlaylistTracks) {
+          socket.emit('game2-playlist-tracks', { tracks: room.game2PlaylistTracks })
+        }
+      }
+    }
   })
 
   socket.on('start-game', ({ roomId, mode }) => {
@@ -200,10 +212,11 @@ io.on('connection', (socket) => {
   })
 
   // === GAME 2: Pictionary Musical ===
-  socket.on('game2-set-track', ({ roomId, track }) => {
+  socket.on('game2-set-track', ({ roomId, track, playlistTracks }) => {
     const room = rooms.get(roomId)
     if (room) {
       room.game2Track = track
+      room.game2PlaylistTracks = playlistTracks || []
       room.game2Drawer = room.players.find(p => p.id !== socket.id)?.id
       room.game2Guesser = socket.id
       
@@ -211,8 +224,10 @@ io.on('connection', (socket) => {
       if (room.game2Drawer) {
         io.to(room.game2Drawer).emit('game2-start-drawing', { track })
       }
-      // Dire au guesser d'attendre
-      socket.emit('game2-wait-drawing')
+      // Envoyer les tracks de la playlist au guesser pour qu'il puisse choisir
+      if (room.game2Guesser) {
+        io.to(room.game2Guesser).emit('game2-playlist-tracks', { tracks: room.game2PlaylistTracks })
+      }
     }
   })
 
