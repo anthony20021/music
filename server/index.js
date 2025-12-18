@@ -226,6 +226,7 @@ io.on('connection', (socket) => {
       }
       // Envoyer les tracks de la playlist au guesser pour qu'il puisse choisir
       if (room.game2Guesser) {
+        io.to(room.game2Guesser).emit('game2-wait-drawing')
         io.to(room.game2Guesser).emit('game2-playlist-tracks', { tracks: room.game2PlaylistTracks })
       }
     }
@@ -248,15 +249,22 @@ io.on('connection', (socket) => {
   socket.on('game2-guess', ({ roomId, guess }) => {
     const room = rooms.get(roomId)
     if (room && room.game2Track) {
-      const trackNameNorm = normalizeString(room.game2Track.name)
-      const artistNorm = normalizeString(room.game2Track.artist)
-      const guessNorm = normalizeString(guess)
+      let isCorrect = false
       
-      // Vérifier si la réponse est correcte (contient le nom ou l'artiste)
-      const isCorrect = trackNameNorm.includes(guessNorm) || 
-                        artistNorm.includes(guessNorm) ||
-                        guessNorm.includes(trackNameNorm) ||
-                        guessNorm.includes(artistNorm)
+      // Si guess est un objet avec trackId, comparer directement les IDs
+      if (typeof guess === 'object' && guess.trackId) {
+        isCorrect = guess.trackId === room.game2Track.id
+      } else {
+        // Sinon, comparer par nom/artiste (compatibilité)
+        const trackNameNorm = normalizeString(room.game2Track.name)
+        const artistNorm = normalizeString(room.game2Track.artist)
+        const guessNorm = normalizeString(typeof guess === 'string' ? guess : guess.trackName || '')
+        
+        isCorrect = trackNameNorm.includes(guessNorm) || 
+                    artistNorm.includes(guessNorm) ||
+                    guessNorm.includes(trackNameNorm) ||
+                    guessNorm.includes(artistNorm)
+      }
       
       if (isCorrect) {
         room.scores[socket.id] = (room.scores[socket.id] || 0) + 1
@@ -267,7 +275,7 @@ io.on('connection', (socket) => {
       
       io.to(roomId).emit('game2-result', {
         correct: isCorrect,
-        guess,
+        guess: typeof guess === 'object' && guess.trackName ? guess.trackName : guess,
         track: room.game2Track,
         scores: room.scores
       })

@@ -105,8 +105,8 @@ const handleClear = () => {
 }
 
 const handleSelectTrack = (track) => {
-  // Envoyer le nom de la track comme guess
-  emit('game2Guess', track.name)
+  // Envoyer l'ID de la track sélectionnée pour comparaison précise
+  emit('game2Guess', { trackId: track.id, trackName: track.name })
 }
 
 const handleNextRound = () => {
