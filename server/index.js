@@ -11,6 +11,16 @@ import fetch from 'node-fetch'
 const { getTracks } = spotifyUrlInfo(fetch)
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+
+// Normalise une chaîne (enlève accents, minuscules, espaces superflus)
+const normalizeString = (str) => {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Enlève les accents
+    .replace(/[^a-z0-9\s]/g, '') 
+    .trim()
+}
 const themes = JSON.parse(readFileSync(join(__dirname, '../src/data/themes.json'), 'utf-8')).themes
 
 const PORT = process.env.PORT || 3001
@@ -223,12 +233,15 @@ io.on('connection', (socket) => {
   socket.on('game2-guess', ({ roomId, guess }) => {
     const room = rooms.get(roomId)
     if (room && room.game2Track) {
-      const trackName = room.game2Track.name.toLowerCase()
-      const guessLower = guess.toLowerCase().trim()
+      const trackNameNorm = normalizeString(room.game2Track.name)
+      const artistNorm = normalizeString(room.game2Track.artist)
+      const guessNorm = normalizeString(guess)
       
       // Vérifier si la réponse est correcte (contient le nom ou l'artiste)
-      const isCorrect = trackName.includes(guessLower) || 
-                        room.game2Track.artist.toLowerCase().includes(guessLower)
+      const isCorrect = trackNameNorm.includes(guessNorm) || 
+                        artistNorm.includes(guessNorm) ||
+                        guessNorm.includes(trackNameNorm) ||
+                        guessNorm.includes(artistNorm)
       
       if (isCorrect) {
         room.scores[socket.id] = (room.scores[socket.id] || 0) + 1

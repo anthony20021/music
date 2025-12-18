@@ -30,7 +30,9 @@ const phase = computed(() => {
 const searchQuery = ref('')
 const playlists = ref([])
 const isSearching = ref(false)
-const isSelectingPlaylist = ref(false)
+const selectedPlaylist = ref(null)
+const playlistTracks = ref([])
+const isLoadingTracks = ref(false)
 
 // Guess
 const guessInput = ref('')
@@ -54,19 +56,25 @@ const handleSearchPlaylists = async () => {
 }
 
 const selectPlaylist = async (playlist) => {
-  isSelectingPlaylist.value = true
+  selectedPlaylist.value = playlist
+  isLoadingTracks.value = true
   try {
     // Récupère les 5 premières tracks (les plus populaires)
-    const tracks = await getPlaylistTracks(playlist.id, 5)
-    if (tracks.length > 0) {
-      // Choisit une track au hasard
-      const randomTrack = tracks[Math.floor(Math.random() * tracks.length)]
-      emit('game2SetTrack', randomTrack)
-    }
+    playlistTracks.value = await getPlaylistTracks(playlist.id, 5)
   } catch (e) {
     console.error(e)
+    selectedPlaylist.value = null
   }
-  isSelectingPlaylist.value = false
+  isLoadingTracks.value = false
+}
+
+const selectTrack = (track) => {
+  emit('game2SetTrack', track)
+}
+
+const backToPlaylists = () => {
+  selectedPlaylist.value = null
+  playlistTracks.value = []
 }
 
 const handleStroke = (stroke) => {
@@ -88,6 +96,8 @@ const handleNextRound = () => {
   emit('game2NextRound')
   playlists.value = []
   searchQuery.value = ''
+  selectedPlaylist.value = null
+  playlistTracks.value = []
 }
 
 defineExpose({ stopAudio: () => {} })
@@ -105,11 +115,41 @@ defineExpose({ stopAudio: () => {} })
       </div>
 
       <div v-if="isCreator" class="selection-area">
-        <div v-if="isSelectingPlaylist" class="loading-selection">
+        <!-- Chargement des tracks -->
+        <div v-if="isLoadingTracks" class="loading-selection">
           <div class="loader"></div>
-          <p>Sélection d'une musique au hasard...</p>
+          <p>Chargement des musiques...</p>
         </div>
         
+        <!-- Sélection d'une track dans la playlist -->
+        <div v-else-if="selectedPlaylist" class="track-selection">
+          <button class="back-btn" @click="backToPlaylists">
+            ← Retour aux playlists
+          </button>
+          <h3>{{ selectedPlaylist.name }}</h3>
+          <p class="selection-hint">Choisis la musique à faire deviner :</p>
+          
+          <div class="tracks-list">
+            <div 
+              v-for="track in playlistTracks" 
+              :key="track.id"
+              class="track-card"
+              @click="selectTrack(track)"
+            >
+              <img :src="track.image" :alt="track.name" />
+              <div class="track-info">
+                <span class="track-name">{{ track.name }}</span>
+                <span class="track-artist">{{ track.artist }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <p v-if="playlistTracks.length === 0" class="no-tracks">
+            Aucune musique trouvée dans cette playlist 😕
+          </p>
+        </div>
+        
+        <!-- Recherche de playlists -->
         <div v-else class="playlist-search">
           <div class="search-bar">
             <input 
@@ -347,7 +387,19 @@ defineExpose({ stopAudio: () => {} })
 
 .track-selection h3 {
   color: white;
+  margin: 0 0 0.5rem 0;
+}
+
+.selection-hint {
+  color: rgba(255, 255, 255, 0.6);
   margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+}
+
+.no-tracks {
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  padding: 2rem;
 }
 
 .tracks-list {
