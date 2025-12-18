@@ -118,7 +118,7 @@ io.on('connection', (socket) => {
     socket.emit('chat-history', room.messages)
     
     if (room.theme) {
-      socket.emit('theme-update', room.theme)
+      socket.emit('game-started', { theme: room.theme, mode: room.mode })
       socket.emit('scores-update', room.scores)
     }
   })
