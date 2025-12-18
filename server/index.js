@@ -315,14 +315,14 @@ io.on('connection', (socket) => {
       if (room.game2Ready.length === 2) {
         room.game2Ready = []
         
-        // Alterner qui choisit la playlist (celui qui n'a pas choisi la dernière fois)
-        if (room.game2NextChooser) {
-          const otherPlayer = room.players.find(p => p.id !== room.game2NextChooser)
-          room.game2NextChooser = otherPlayer?.id || room.creator
+        // Alterner : celui qui était drawer devient guesser (et choisit la playlist)
+        // Celui qui était guesser devient drawer
+        if (room.game2Drawer) {
+          room.game2NextChooser = room.game2Drawer
         } else {
-          // Si pas encore défini, alterner depuis le créateur
-          const currentChooser = room.game2Guesser || room.creator
-          const otherPlayer = room.players.find(p => p.id !== currentChooser)
+          // Si pas de drawer défini, alterner depuis le guesser actuel
+          const currentGuesser = room.game2Guesser || room.creator
+          const otherPlayer = room.players.find(p => p.id !== currentGuesser)
           room.game2NextChooser = otherPlayer?.id || room.creator
         }
         

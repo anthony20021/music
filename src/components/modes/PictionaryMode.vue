@@ -33,7 +33,16 @@ const phase = computed(() => {
 
 // Vérifier si c'est mon tour de choisir la playlist
 const isMyTurnToChoose = computed(() => {
-  return props.game2NextChooser && socketId.value === props.game2NextChooser
+  // Si on a déjà un rôle (drawer ou guesser), on n'est plus en phase de sélection
+  if (props.game2Role) return false
+  
+  // Si game2NextChooser est défini, utiliser celui-ci (après la première manche)
+  if (props.game2NextChooser && socketId.value) {
+    return socketId.value === props.game2NextChooser
+  }
+  
+  // Sinon, au démarrage, c'est toujours le créateur qui choisit
+  return props.isCreator
 })
 
 // Sélection du thème
