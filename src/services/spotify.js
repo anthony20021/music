@@ -122,10 +122,37 @@ export async function getPlaylistTracks(playlistId, limit = 5) {
 
   const data = await response.json()
   
-  return data.items.filter(item => item.track).map(item => ({
-    id: item.track.id,
-    name: item.track.name,
-    artist: item.track.artists.map(a => a.name).join(', '),
-    image: item.track.album.images?.[1]?.url || item.track.album.images?.[0]?.url
-  }))
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'
+  
+  // Récupérer les previewUrl pour chaque track via le serveur
+  const tracksWithPreviews = await Promise.all(
+    data.items
+      .filter(item => item.track)
+      .map(async (item) => {
+        const track = item.track
+        let previewUrl = null
+        
+        try {
+          const previewResponse = await fetch(`${SERVER_URL}/api/preview/${track.id}`)
+          if (previewResponse.ok) {
+            const previewData = await previewResponse.json()
+            previewUrl = previewData.previewUrl || null
+          }
+        } catch (e) {
+          console.warn('Erreur récupération preview pour', track.id, e)
+        }
+        
+        return {
+          id: track.id,
+          name: track.name,
+          artist: track.artists.map(a => a.name).join(', '),
+          album: track.album.name,
+          image: track.album.images?.[1]?.url || track.album.images?.[0]?.url,
+          previewUrl: previewUrl,
+          duration: track.duration_ms
+        }
+      })
+  )
+  
+  return tracksWithPreviews
 }
