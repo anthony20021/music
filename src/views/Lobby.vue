@@ -278,5 +278,15 @@ h2 {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+@media (max-width: 480px) {
+  .join-form {
+    flex-direction: column;
+  }
+  
+  .join-form button {
+    width: 100%;
+  }
+}
 </style>
 
