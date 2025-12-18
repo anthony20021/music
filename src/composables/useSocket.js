@@ -21,6 +21,13 @@ const readyCount = ref(0)
 const skipCount = ref(0)
 const isCreator = ref(false)
 
+// Game 2 states
+const game2Role = ref(null) // 'drawer' | 'guesser' | null
+const game2Track = shallowRef(null)
+const game2Strokes = shallowRef([])
+const game2Result = shallowRef(null)
+const game2ReadyCount = ref(0)
+
 socket.on('connect', () => {
   isConnected.value = true
 })
@@ -97,6 +104,51 @@ socket.on('room-info', ({ isCreator: creator }) => {
   isCreator.value = creator
 })
 
+// Game 2 events
+socket.on('game2-start-drawing', ({ track }) => {
+  game2Role.value = 'drawer'
+  game2Track.value = track
+  game2Strokes.value = []
+  game2Result.value = null
+  triggerRef(game2Track)
+})
+
+socket.on('game2-wait-drawing', () => {
+  game2Role.value = 'guesser'
+  game2Track.value = null
+  game2Strokes.value = []
+  game2Result.value = null
+})
+
+socket.on('game2-stroke', (stroke) => {
+  game2Strokes.value = [...game2Strokes.value, stroke]
+  triggerRef(game2Strokes)
+})
+
+socket.on('game2-clear', () => {
+  game2Strokes.value = [{ type: 'clear' }]
+  triggerRef(game2Strokes)
+})
+
+socket.on('game2-result', (result) => {
+  game2Result.value = result
+  scores.value = result.scores
+  triggerRef(game2Result)
+  triggerRef(scores)
+})
+
+socket.on('game2-ready-count', (count) => {
+  game2ReadyCount.value = count
+})
+
+socket.on('game2-new-round', () => {
+  game2Role.value = null
+  game2Track.value = null
+  game2Strokes.value = []
+  game2Result.value = null
+  game2ReadyCount.value = 0
+})
+
 export function useSocket() {
   const joinRoom = (roomId, pseudo) => {
     if (socket.connected) {
@@ -146,6 +198,27 @@ export function useSocket() {
     socket.emit('skip-round', { roomId })
   }
 
+  // Game 2 functions
+  const game2SetTrack = (roomId, track) => {
+    socket.emit('game2-set-track', { roomId, track })
+  }
+
+  const game2DrawStroke = (roomId, stroke) => {
+    socket.emit('game2-draw-stroke', { roomId, stroke })
+  }
+
+  const game2ClearCanvas = (roomId) => {
+    socket.emit('game2-clear-canvas', { roomId })
+  }
+
+  const game2Guess = (roomId, guess) => {
+    socket.emit('game2-guess', { roomId, guess })
+  }
+
+  const game2NextRound = (roomId) => {
+    socket.emit('game2-next-round', { roomId })
+  }
+
   return {
     socket,
     players,
@@ -166,6 +239,17 @@ export function useSocket() {
     startGame,
     submitTracks,
     readyNextRound,
-    skipRound
+    skipRound,
+    // Game 2
+    game2Role,
+    game2Track,
+    game2Strokes,
+    game2Result,
+    game2ReadyCount,
+    game2SetTrack,
+    game2DrawStroke,
+    game2ClearCanvas,
+    game2Guess,
+    game2NextRound
   }
 }

@@ -9,8 +9,11 @@ const route = useRoute()
 const router = useRouter()
 const { 
   players, messages, isConnected, currentMode, currentTheme, opponentReady, 
-  roundResult, scores, readyCount, skipCount,
-  joinRoom, leaveRoom, sendMessage, submitTracks, readyNextRound, skipRound 
+  roundResult, scores, readyCount, skipCount, isCreator,
+  joinRoom, leaveRoom, sendMessage, submitTracks, readyNextRound, skipRound,
+  // Game 2
+  game2Role, game2Track, game2Strokes, game2Result, game2ReadyCount,
+  game2SetTrack, game2DrawStroke, game2ClearCanvas, game2Guess, game2NextRound
 } = useSocket()
 
 const pseudo = ref('')
@@ -83,6 +86,27 @@ const handleNextRound = () => {
 const handleSkip = () => {
   skipRound(roomId.value)
 }
+
+// Game 2 handlers
+const handleGame2SetTrack = (track) => {
+  game2SetTrack(roomId.value, track)
+}
+
+const handleGame2DrawStroke = (stroke) => {
+  game2DrawStroke(roomId.value, stroke)
+}
+
+const handleGame2ClearCanvas = () => {
+  game2ClearCanvas(roomId.value)
+}
+
+const handleGame2Guess = (guess) => {
+  game2Guess(roomId.value, guess)
+}
+
+const handleGame2NextRound = () => {
+  game2NextRound(roomId.value)
+}
 </script>
 
 <template>
@@ -98,7 +122,7 @@ const handleSkip = () => {
         <div class="room-info">
           <span class="room-label">Room</span>
           <span class="room-code">{{ roomId }}</span>
-          <span class="mode-badge" v-if="currentMode">{{ currentMode === 'match' ? '🎯 Match' : '🎲 Jeu 2' }}</span>
+          <span class="mode-badge" v-if="currentMode">{{ currentMode === 'match' ? '🎯 Match' : '🎨 Pictionary' }}</span>
         </div>
         <div class="scores">
           <span class="score you">{{ pseudo }}: {{ myScore }} pts</span>
@@ -121,9 +145,20 @@ const handleSkip = () => {
             :scores="scores"
             :readyCount="readyCount"
             :skipCount="skipCount"
+            :isCreator="isCreator"
+            :game2Role="game2Role"
+            :game2Track="game2Track"
+            :game2Strokes="game2Strokes"
+            :game2Result="game2Result"
+            :game2ReadyCount="game2ReadyCount"
             @submit="handleSubmit"
             @nextRound="handleNextRound"
             @skip="handleSkip"
+            @game2SetTrack="handleGame2SetTrack"
+            @game2DrawStroke="handleGame2DrawStroke"
+            @game2ClearCanvas="handleGame2ClearCanvas"
+            @game2Guess="handleGame2Guess"
+            @game2NextRound="handleGame2NextRound"
           />
         </div>
 

@@ -189,6 +189,85 @@ io.on('connection', (socket) => {
     }
   })
 
+  // === GAME 2: Pictionary Musical ===
+  socket.on('game2-set-track', ({ roomId, track }) => {
+    const room = rooms.get(roomId)
+    if (room) {
+      room.game2Track = track
+      room.game2Drawer = room.players.find(p => p.id !== socket.id)?.id
+      room.game2Guesser = socket.id
+      
+      // Envoyer la track au dessinateur
+      if (room.game2Drawer) {
+        io.to(room.game2Drawer).emit('game2-start-drawing', { track })
+      }
+      // Dire au guesser d'attendre
+      socket.emit('game2-wait-drawing')
+    }
+  })
+
+  socket.on('game2-draw-stroke', ({ roomId, stroke }) => {
+    const room = rooms.get(roomId)
+    if (room && room.game2Guesser) {
+      io.to(room.game2Guesser).emit('game2-stroke', stroke)
+    }
+  })
+
+  socket.on('game2-clear-canvas', ({ roomId }) => {
+    const room = rooms.get(roomId)
+    if (room && room.game2Guesser) {
+      io.to(room.game2Guesser).emit('game2-clear')
+    }
+  })
+
+  socket.on('game2-guess', ({ roomId, guess }) => {
+    const room = rooms.get(roomId)
+    if (room && room.game2Track) {
+      const trackName = room.game2Track.name.toLowerCase()
+      const guessLower = guess.toLowerCase().trim()
+      
+      // Vérifier si la réponse est correcte (contient le nom ou l'artiste)
+      const isCorrect = trackName.includes(guessLower) || 
+                        room.game2Track.artist.toLowerCase().includes(guessLower)
+      
+      if (isCorrect) {
+        room.scores[socket.id] = (room.scores[socket.id] || 0) + 1
+        if (room.game2Drawer) {
+          room.scores[room.game2Drawer] = (room.scores[room.game2Drawer] || 0) + 1
+        }
+      }
+      
+      io.to(roomId).emit('game2-result', {
+        correct: isCorrect,
+        guess,
+        track: room.game2Track,
+        scores: room.scores
+      })
+      
+      room.game2Track = null
+      room.game2Drawer = null
+      room.game2Guesser = null
+    }
+  })
+
+  socket.on('game2-next-round', ({ roomId }) => {
+    const room = rooms.get(roomId)
+    if (room) {
+      if (!room.game2Ready) room.game2Ready = []
+      if (!room.game2Ready.includes(socket.id)) {
+        room.game2Ready.push(socket.id)
+      }
+      
+      io.to(roomId).emit('game2-ready-count', room.game2Ready.length)
+      
+      if (room.game2Ready.length === 2) {
+        room.game2Ready = []
+        // Inverser les rôles
+        io.to(roomId).emit('game2-new-round')
+      }
+    }
+  })
+
   socket.on('chat-message', ({ roomId, pseudo, message }) => {
     const room = rooms.get(roomId)
     if (room) {

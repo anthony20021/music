@@ -89,3 +89,43 @@ export function formatDuration(ms) {
   const seconds = Math.floor((ms % 60000) / 1000)
   return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
+
+export async function searchPlaylists(query, limit = 6) {
+  const token = await getAccessToken()
+  
+  const response = await fetch(
+    `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=playlist&limit=${limit}`,
+    {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  )
+
+  const data = await response.json()
+  
+  return data.playlists.items.filter(p => p).map(playlist => ({
+    id: playlist.id,
+    name: playlist.name,
+    image: playlist.images?.[0]?.url || null,
+    owner: playlist.owner?.display_name
+  }))
+}
+
+export async function getPlaylistTracks(playlistId, limit = 5) {
+  const token = await getAccessToken()
+  
+  const response = await fetch(
+    `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=${limit}`,
+    {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  )
+
+  const data = await response.json()
+  
+  return data.items.filter(item => item.track).map(item => ({
+    id: item.track.id,
+    name: item.track.name,
+    artist: item.track.artists.map(a => a.name).join(', '),
+    image: item.track.album.images?.[1]?.url || item.track.album.images?.[0]?.url
+  }))
+}
