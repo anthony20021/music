@@ -210,8 +210,12 @@ io.on('connection', (socket) => {
 })
 
 if (existsSync(distPath)) {
-  app.get('*', (req, res) => {
-    res.sendFile(join(distPath, 'index.html'))
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/socket.io')) {
+      res.sendFile(join(distPath, 'index.html'))
+    } else {
+      next()
+    }
   })
 }
 
