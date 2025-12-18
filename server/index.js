@@ -283,10 +283,8 @@ io.on('connection', (socket) => {
       }
       
       if (isCorrect) {
+        // Seul le guesser gagne un point
         room.scores[socket.id] = (room.scores[socket.id] || 0) + 1
-        if (room.game2Drawer) {
-          room.scores[room.game2Drawer] = (room.scores[room.game2Drawer] || 0) + 1
-        }
       }
       
       io.to(roomId).emit('game2-result', {
