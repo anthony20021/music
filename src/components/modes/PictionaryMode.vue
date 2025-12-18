@@ -30,9 +30,7 @@ const phase = computed(() => {
 const searchQuery = ref('')
 const playlists = ref([])
 const isSearching = ref(false)
-const selectedPlaylist = ref(null)
-const tracks = ref([])
-const isLoadingTracks = ref(false)
+const isSelectingPlaylist = ref(false)
 
 // Guess
 const guessInput = ref('')
@@ -56,18 +54,19 @@ const handleSearchPlaylists = async () => {
 }
 
 const selectPlaylist = async (playlist) => {
-  selectedPlaylist.value = playlist
-  isLoadingTracks.value = true
+  isSelectingPlaylist.value = true
   try {
-    tracks.value = await getPlaylistTracks(playlist.id, 10)
+    // Récupère les 5 premières tracks (les plus populaires)
+    const tracks = await getPlaylistTracks(playlist.id, 5)
+    if (tracks.length > 0) {
+      // Choisit une track au hasard
+      const randomTrack = tracks[Math.floor(Math.random() * tracks.length)]
+      emit('game2SetTrack', randomTrack)
+    }
   } catch (e) {
     console.error(e)
   }
-  isLoadingTracks.value = false
-}
-
-const selectTrack = (track) => {
-  emit('game2SetTrack', track)
+  isSelectingPlaylist.value = false
 }
 
 const handleStroke = (stroke) => {
@@ -87,8 +86,6 @@ const handleGuess = () => {
 
 const handleNextRound = () => {
   emit('game2NextRound')
-  selectedPlaylist.value = null
-  tracks.value = []
   playlists.value = []
   searchQuery.value = ''
 }
@@ -103,12 +100,17 @@ defineExpose({ stopAudio: () => {} })
       <div class="phase-header">
         <span class="phase-icon">🎨</span>
         <h2>Pictionary Musical</h2>
-        <p v-if="isCreator">Choisis une playlist, puis une musique à faire dessiner !</p>
+        <p v-if="isCreator">Choisis un thème, le jeu piochera une musique au hasard !</p>
         <p v-else>{{ otherPlayer?.pseudo }} choisit la musique...</p>
       </div>
 
       <div v-if="isCreator" class="selection-area">
-        <div v-if="!selectedPlaylist" class="playlist-search">
+        <div v-if="isSelectingPlaylist" class="loading-selection">
+          <div class="loader"></div>
+          <p>Sélection d'une musique au hasard...</p>
+        </div>
+        
+        <div v-else class="playlist-search">
           <div class="search-bar">
             <input 
               v-model="searchQuery"
@@ -131,31 +133,6 @@ defineExpose({ stopAudio: () => {} })
               <img v-if="playlist.image" :src="playlist.image" :alt="playlist.name" />
               <div v-else class="no-image">🎵</div>
               <span class="playlist-name">{{ playlist.name }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div v-else class="track-selection">
-          <button class="back-btn" @click="selectedPlaylist = null">← Retour</button>
-          <h3>{{ selectedPlaylist.name }}</h3>
-          
-          <div v-if="isLoadingTracks" class="loading">
-            <div class="loader"></div>
-          </div>
-          
-          <div v-else class="tracks-list">
-            <div 
-              v-for="track in tracks" 
-              :key="track.id"
-              class="track-card"
-              @click="selectTrack(track)"
-            >
-              <img :src="track.image" :alt="track.name" />
-              <div class="track-info">
-                <span class="track-name">{{ track.name }}</span>
-                <span class="track-artist">{{ track.artist }}</span>
-              </div>
-              <span class="select-icon">→</span>
             </div>
           </div>
         </div>
@@ -612,6 +589,20 @@ defineExpose({ stopAudio: () => {} })
   color: #1a1a2e;
   cursor: pointer;
   font-family: inherit;
+}
+
+.loading-selection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.loading-selection p {
+  margin-top: 1rem;
+  color: #00d9ff;
 }
 
 .loading {
