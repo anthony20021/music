@@ -62,6 +62,11 @@ watch(() => props.game2Role, (newRole) => {
   }
 })
 
+// Watch pour déboguer l'alternance
+watch(() => [props.game2NextChooser, socketId.value, props.game2Role], ([nextChooser, socket, role]) => {
+  console.log('Pictionary alternance:', { nextChooser, socket, role, isMyTurn: nextChooser === socket })
+}, { immediate: true })
+
 // Audio
 const currentAudio = ref(null)
 const playingTrackId = ref(null)

@@ -316,15 +316,16 @@ io.on('connection', (socket) => {
         room.game2Ready = []
         
         // Alterner : celui qui était drawer devient guesser (et choisit la playlist)
-        // Celui qui était guesser devient drawer
-        if (room.game2Drawer) {
-          room.game2NextChooser = room.game2Drawer
-        } else {
-          // Si pas de drawer défini, alterner depuis le guesser actuel
-          const currentGuesser = room.game2Guesser || room.creator
-          const otherPlayer = room.players.find(p => p.id !== currentGuesser)
-          room.game2NextChooser = otherPlayer?.id || room.creator
-        }
+        // On alterne toujours depuis le dernier chooser
+        const lastChooser = room.game2NextChooser || room.creator
+        const otherPlayer = room.players.find(p => p.id !== lastChooser)
+        room.game2NextChooser = otherPlayer?.id || room.creator
+        
+        console.log('Pictionary alternance:', { 
+          lastChooser, 
+          newChooser: room.game2NextChooser, 
+          players: room.players.map(p => ({ id: p.id, pseudo: p.pseudo }))
+        })
         
         // Réinitialiser l'état du jeu
         room.game2Track = null
