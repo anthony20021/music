@@ -315,6 +315,14 @@ const isMatch = (trackId) => {
                     <span class="track-name">{{ track.name }}</span>
                     <span class="track-artist">{{ track.artist }}</span>
                   </div>
+                  <button 
+                    class="play-btn small"
+                    :class="{ loading: loadingPreviewId === track.id }"
+                    @click="playPreview(track)"
+                  >
+                    <span v-if="loadingPreviewId === track.id" class="btn-loader"></span>
+                    <span v-else>{{ playingTrackId === track.id ? '⏸' : '▶' }}</span>
+                  </button>
                   <span v-if="isMatch(track.id)" class="match-badge">🎯</span>
                 </div>
               </div>
@@ -332,6 +340,14 @@ const isMatch = (trackId) => {
                     <span class="track-name">{{ track.name }}</span>
                     <span class="track-artist">{{ track.artist }}</span>
                   </div>
+                  <button 
+                    class="play-btn small"
+                    :class="{ loading: loadingPreviewId === track.id }"
+                    @click="playPreview(track)"
+                  >
+                    <span v-if="loadingPreviewId === track.id" class="btn-loader"></span>
+                    <span v-else>{{ playingTrackId === track.id ? '⏸' : '▶' }}</span>
+                  </button>
                   <span v-if="isMatch(track.id)" class="match-badge">🎯</span>
                 </div>
               </div>
