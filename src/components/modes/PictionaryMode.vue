@@ -37,6 +37,11 @@ const isLoadingTracks = ref(false)
 // Guess
 const guessInput = ref('')
 
+// Audio
+const currentAudio = ref(null)
+const playingTrackId = ref(null)
+const loadingPreviewId = ref(null)
+
 const myScore = computed(() => {
   const me = props.scores?.[Object.keys(props.scores || {}).find(id => {
     return props.pseudo // On cherche notre score
@@ -98,9 +103,41 @@ const handleNextRound = () => {
   searchQuery.value = ''
   selectedPlaylist.value = null
   playlistTracks.value = []
+  stopAudio()
 }
 
-defineExpose({ stopAudio: () => {} })
+const playPreview = async (track) => {
+  stopAudio()
+  
+  if (!track?.previewUrl) return
+  
+  loadingPreviewId.value = track.id
+  
+  try {
+    currentAudio.value = new Audio(track.previewUrl)
+    currentAudio.value.volume = 0.5
+    await currentAudio.value.play()
+    playingTrackId.value = track.id
+    
+    currentAudio.value.onended = () => {
+      playingTrackId.value = null
+    }
+  } catch (e) {
+    console.error('Erreur lecture audio:', e)
+  }
+  
+  loadingPreviewId.value = null
+}
+
+const stopAudio = () => {
+  if (currentAudio.value) {
+    currentAudio.value.pause()
+    currentAudio.value = null
+    playingTrackId.value = null
+  }
+}
+
+defineExpose({ stopAudio })
 </script>
 
 <template>
@@ -194,6 +231,14 @@ defineExpose({ stopAudio: () => {} })
             <span class="track-name">{{ game2Track?.name }}</span>
             <span class="track-artist">{{ game2Track?.artist }}</span>
           </div>
+          <button 
+            v-if="game2Track?.previewUrl"
+            class="play-btn"
+            :class="{ playing: playingTrackId === game2Track?.id }"
+            @click="playingTrackId === game2Track?.id ? stopAudio() : playPreview(game2Track)"
+          >
+            {{ playingTrackId === game2Track?.id ? '⏸️' : '▶️' }}
+          </button>
         </div>
         <DrawCanvas 
           :canDraw="true"
@@ -238,6 +283,15 @@ defineExpose({ stopAudio: () => {} })
             <span class="track-artist">{{ game2Result?.track?.artist }}</span>
           </div>
         </div>
+        
+        <button 
+          v-if="game2Result?.track?.previewUrl"
+          class="play-btn-big"
+          :class="{ playing: playingTrackId === game2Result?.track?.id }"
+          @click="playingTrackId === game2Result?.track?.id ? stopAudio() : playPreview(game2Result?.track)"
+        >
+          {{ playingTrackId === game2Result?.track?.id ? '⏸️ Pause' : '▶️ Écouter' }}
+        </button>
 
         <p v-if="!game2Result?.correct" class="guess-was">
           Proposition : "{{ game2Result?.guess }}"
@@ -516,6 +570,53 @@ defineExpose({ stopAudio: () => {} })
 .track-to-draw .track-name {
   font-size: 1.1rem;
   font-weight: 600;
+}
+
+.play-btn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 217, 255, 0.2);
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.play-btn:hover {
+  background: rgba(0, 217, 255, 0.4);
+  transform: scale(1.1);
+}
+
+.play-btn.playing {
+  background: rgba(233, 69, 96, 0.3);
+}
+
+.play-btn-big {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 25px;
+  background: linear-gradient(135deg, #00d9ff, #a855f7);
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 1rem;
+}
+
+.play-btn-big:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(0, 217, 255, 0.4);
+}
+
+.play-btn-big.playing {
+  background: linear-gradient(135deg, #e94560, #a855f7);
 }
 
 .guess-header {
