@@ -61,6 +61,16 @@ const startDrawing = (e) => {
   const pos = getPos(e)
   ctx.value.beginPath()
   ctx.value.moveTo(pos.x * canvas.value.width, pos.y * canvas.value.height)
+  
+  // Envoyer le point de départ
+  const stroke = {
+    type: 'start',
+    x: pos.x,
+    y: pos.y,
+    color: currentColor.value,
+    size: brushSize.value
+  }
+  emit('stroke', stroke)
 }
 
 const draw = (e) => {
@@ -86,10 +96,18 @@ const stopDrawing = () => {
 const drawStroke = (stroke) => {
   ctx.value.strokeStyle = stroke.color
   ctx.value.lineWidth = stroke.size
-  ctx.value.lineTo(stroke.x * canvas.value.width, stroke.y * canvas.value.height)
-  ctx.value.stroke()
-  ctx.value.beginPath()
-  ctx.value.moveTo(stroke.x * canvas.value.width, stroke.y * canvas.value.height)
+  
+  if (stroke.type === 'start') {
+    // Nouveau trait : juste positionner le curseur
+    ctx.value.beginPath()
+    ctx.value.moveTo(stroke.x * canvas.value.width, stroke.y * canvas.value.height)
+  } else {
+    // Continuer le trait
+    ctx.value.lineTo(stroke.x * canvas.value.width, stroke.y * canvas.value.height)
+    ctx.value.stroke()
+    ctx.value.beginPath()
+    ctx.value.moveTo(stroke.x * canvas.value.width, stroke.y * canvas.value.height)
+  }
 }
 
 const clearCanvas = (emitEvent = true) => {
