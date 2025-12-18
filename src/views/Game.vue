@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSocket } from '../composables/useSocket'
 import MatchMode from '../components/modes/MatchMode.vue'
-import Game2Mode from '../components/modes/Game2Mode.vue'
+import PictionaryMode from '../components/modes/PictionaryMode.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,7 +24,7 @@ const modeRef = ref(null)
 
 const modeComponents = {
   match: MatchMode,
-  game2: Game2Mode
+  game2: PictionaryMode
 }
 
 const currentModeComponent = computed(() => {
