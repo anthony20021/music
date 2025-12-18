@@ -865,6 +865,17 @@ defineExpose({ stopAudio })
     gap: 0.75rem;
   }
   
+  .playlist-card img {
+    max-width: 100px;
+    max-height: 100px;
+  }
+  
+  .playlist-card .no-image {
+    max-width: 100px;
+    max-height: 100px;
+    font-size: 1.8rem;
+  }
+  
   .tracks-grid {
     grid-template-columns: 1fr;
     gap: 0.5rem;
@@ -913,6 +924,19 @@ defineExpose({ stopAudio })
   
   .playlist-card {
     padding: 0.5rem;
+  }
+  
+  .playlist-card img {
+    max-width: 80px;
+    max-height: 80px;
+    margin: 0 auto 0.25rem;
+  }
+  
+  .playlist-card .no-image {
+    max-width: 80px;
+    max-height: 80px;
+    margin: 0 auto 0.25rem;
+    font-size: 1.5rem;
   }
   
   .playlist-name {
