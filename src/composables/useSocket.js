@@ -17,6 +17,7 @@ const opponentReady = ref(false)
 const roundResult = shallowRef(null)
 const scores = shallowRef({})
 const readyCount = ref(0)
+const skipCount = ref(0)
 
 socket.on('connect', () => {
   isConnected.value = true
@@ -82,6 +83,11 @@ socket.on('new-round', ({ theme }) => {
   opponentReady.value = false
   roundResult.value = null
   readyCount.value = 0
+  skipCount.value = 0
+})
+
+socket.on('skip-count', (count) => {
+  skipCount.value = count
 })
 
 export function useSocket() {
@@ -127,6 +133,10 @@ export function useSocket() {
     socket.emit('ready-next-round', { roomId })
   }
 
+  const skipRound = (roomId) => {
+    socket.emit('skip-round', { roomId })
+  }
+
   return {
     socket,
     players,
@@ -138,11 +148,13 @@ export function useSocket() {
     roundResult,
     scores,
     readyCount,
+    skipCount,
     joinRoom,
     leaveRoom,
     sendMessage,
     startGame,
     submitTracks,
-    readyNextRound
+    readyNextRound,
+    skipRound
   }
 }

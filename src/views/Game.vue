@@ -8,8 +8,8 @@ const route = useRoute()
 const router = useRouter()
 const { 
   players, messages, isConnected, currentTheme, opponentReady, 
-  roundResult, scores, readyCount,
-  joinRoom, leaveRoom, sendMessage, submitTracks, readyNextRound 
+  roundResult, scores, readyCount, skipCount,
+  joinRoom, leaveRoom, sendMessage, submitTracks, readyNextRound, skipRound 
 } = useSocket()
 
 const pseudo = ref('')
@@ -110,6 +110,10 @@ const handleSubmit = () => {
 
 const handleNextRound = () => {
   readyNextRound(roomId.value)
+}
+
+const handleSkip = () => {
+  skipRound(roomId.value)
 }
 
 const playPreview = async (track) => {
@@ -282,6 +286,9 @@ const isMatch = (trackId) => {
                   <span v-if="!opponentReady">En attente de {{ otherPlayer?.pseudo }}...</span>
                   <span v-else>{{ otherPlayer?.pseudo }} a validé !</span>
                 </div>
+                <button class="btn-skip" @click="handleSkip">
+                  Skip ({{ skipCount }}/2)
+                </button>
               </div>
             </div>
           </div>
@@ -651,6 +658,25 @@ const isMatch = (trackId) => {
 
 .btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(233, 69, 96, 0.4); }
 .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-skip {
+  margin-top: 0.75rem;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: inherit;
+}
+.btn-skip:hover { 
+  border-color: rgba(255, 255, 255, 0.4); 
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+}
 
 .waiting-opponent {
   display: flex;

@@ -98,7 +98,8 @@ io.on('connection', (socket) => {
         theme: null,
         submissions: {},
         scores: {},
-        readyForNext: []
+        readyForNext: [],
+        skipVotes: []
       })
     }
     
@@ -159,6 +160,26 @@ io.on('connection', (socket) => {
         room.theme = getRandomTheme()
         room.submissions = {}
         room.readyForNext = []
+        room.skipVotes = []
+        io.to(roomId).emit('new-round', { theme: room.theme })
+      }
+    }
+  })
+
+  socket.on('skip-round', ({ roomId }) => {
+    const room = rooms.get(roomId)
+    if (room) {
+      if (!room.skipVotes.includes(socket.id)) {
+        room.skipVotes.push(socket.id)
+      }
+      
+      io.to(roomId).emit('skip-count', room.skipVotes.length)
+      
+      if (room.skipVotes.length === 2) {
+        room.theme = getRandomTheme()
+        room.submissions = {}
+        room.readyForNext = []
+        room.skipVotes = []
         io.to(roomId).emit('new-round', { theme: room.theme })
       }
     }
