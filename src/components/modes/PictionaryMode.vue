@@ -35,12 +35,12 @@ const phase = computed(() => {
 const isMyTurnToChoose = computed(() => {
   // Si on a déjà un rôle (drawer ou guesser), on n'est plus en phase de sélection
   if (props.game2Role) return false
-  
+
   // Si game2NextChooser est défini, utiliser celui-ci (après la première manche)
   if (props.game2NextChooser && socketId.value) {
     return socketId.value === props.game2NextChooser
   }
-  
+
   // Sinon, au démarrage, c'est toujours le créateur qui choisit
   return props.isCreator
 })
@@ -142,24 +142,24 @@ const handleNextRound = () => {
 
 const playPreview = async (track) => {
   stopAudio()
-  
+
   if (!track?.previewUrl) return
-  
+
   loadingPreviewId.value = track.id
-  
+
   try {
     currentAudio.value = new Audio(track.previewUrl)
     currentAudio.value.volume = 0.5
     await currentAudio.value.play()
     playingTrackId.value = track.id
-    
+
     currentAudio.value.onended = () => {
       playingTrackId.value = null
     }
   } catch (e) {
     console.error('Erreur lecture audio:', e)
   }
-  
+
   loadingPreviewId.value = null
 }
 
@@ -191,28 +191,20 @@ defineExpose({ stopAudio })
           <div class="loader"></div>
           <p>Sélection d'une musique au hasard...</p>
         </div>
-        
+
         <!-- Recherche de playlists -->
         <div v-else class="playlist-search">
           <div class="search-bar">
-            <input 
-              v-model="searchQuery"
-              type="text"
-              placeholder="Rechercher un genre, artiste, ambiance..."
-              @keyup.enter="handleSearchPlaylists"
-            />
+            <input v-model="searchQuery" type="text" placeholder="Rechercher un genre, artiste, ambiance..."
+              @keyup.enter="handleSearchPlaylists" />
             <button @click="handleSearchPlaylists" :disabled="isSearching">
               {{ isSearching ? '...' : '🔍' }}
             </button>
           </div>
 
           <div v-if="playlists.length" class="playlists-grid">
-            <div 
-              v-for="playlist in playlists" 
-              :key="playlist.id"
-              class="playlist-card"
-              @click="selectPlaylist(playlist)"
-            >
+            <div v-for="playlist in playlists" :key="playlist.id" class="playlist-card"
+              @click="selectPlaylist(playlist)">
               <img v-if="playlist.image" :src="playlist.image" :alt="playlist.name" />
               <div v-else class="no-image">🎵</div>
               <span class="playlist-name">{{ playlist.name }}</span>
@@ -237,20 +229,12 @@ defineExpose({ stopAudio })
             <span class="track-name">{{ game2Track?.name }}</span>
             <span class="track-artist">{{ game2Track?.artist }}</span>
           </div>
-          <button 
-            v-if="game2Track?.previewUrl"
-            class="play-btn"
-            :class="{ playing: playingTrackId === game2Track?.id }"
-            @click="playingTrackId === game2Track?.id ? stopAudio() : playPreview(game2Track)"
-          >
+          <button v-if="game2Track?.previewUrl" class="play-btn" :class="{ playing: playingTrackId === game2Track?.id }"
+            @click="playingTrackId === game2Track?.id ? stopAudio() : playPreview(game2Track)">
             {{ playingTrackId === game2Track?.id ? '⏸️' : '▶️' }}
           </button>
         </div>
-        <DrawCanvas 
-          :canDraw="true"
-          @stroke="handleStroke"
-          @clear="handleClear"
-        />
+        <DrawCanvas :canDraw="true" @stroke="handleStroke" @clear="handleClear" />
       </div>
 
       <div v-else class="guesser-view">
@@ -258,29 +242,19 @@ defineExpose({ stopAudio })
           <span class="icon">🤔</span>
           <p>{{ otherPlayer?.pseudo }} dessine... Devine la musique !</p>
         </div>
-        <DrawCanvas 
-          :canDraw="false"
-          :strokes="game2Strokes"
-        />
+        <DrawCanvas :canDraw="false" :strokes="game2Strokes" />
         <div class="guess-selection">
           <p class="selection-label">Choisis la musique dans la playlist :</p>
           <div class="tracks-grid">
-            <div 
-              v-for="track in game2PlaylistTracks" 
-              :key="track.id"
-              class="track-choice"
-              @click="handleSelectTrack(track)"
-            >
+            <div v-for="track in game2PlaylistTracks" :key="track.id" class="track-choice"
+              @click="handleSelectTrack(track)">
               <img :src="track.image" :alt="track.name" />
               <div class="track-info">
                 <span class="track-name">{{ track.name }}</span>
                 <span class="track-artist">{{ track.artist }}</span>
               </div>
-              <button 
-                v-if="track.previewUrl"
-                class="play-preview-btn"
-                @click.stop="playingTrackId === track.id ? stopAudio() : playPreview(track)"
-              >
+              <button v-if="track.previewUrl" class="play-preview-btn"
+                @click.stop="playingTrackId === track.id ? stopAudio() : playPreview(track)">
                 {{ playingTrackId === track.id ? '⏸️' : '▶️' }}
               </button>
             </div>
@@ -294,7 +268,7 @@ defineExpose({ stopAudio })
       <div class="result-card" :class="{ correct: game2Result?.correct }">
         <span class="result-icon">{{ game2Result?.correct ? '🎉' : '😅' }}</span>
         <h2>{{ game2Result?.correct ? 'Bravo !' : 'Raté !' }}</h2>
-        
+
         <div class="track-reveal">
           <img :src="game2Result?.track?.image" :alt="game2Result?.track?.name" />
           <div class="track-info">
@@ -302,13 +276,10 @@ defineExpose({ stopAudio })
             <span class="track-artist">{{ game2Result?.track?.artist }}</span>
           </div>
         </div>
-        
-        <button 
-          v-if="game2Result?.track?.previewUrl"
-          class="play-btn-big"
+
+        <button v-if="game2Result?.track?.previewUrl" class="play-btn-big"
           :class="{ playing: playingTrackId === game2Result?.track?.id }"
-          @click="playingTrackId === game2Result?.track?.id ? stopAudio() : playPreview(game2Result?.track)"
-        >
+          @click="playingTrackId === game2Result?.track?.id ? stopAudio() : playPreview(game2Result?.track)">
           {{ playingTrackId === game2Result?.track?.id ? '⏸️ Pause' : '▶️ Écouter' }}
         </button>
 
@@ -365,12 +336,22 @@ defineExpose({ stopAudio })
 .selection-area {
   flex: 1;
   overflow-y: auto;
+  width: 100%;
+  max-width: 100%;
+}
+
+.playlist-search {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .search-bar {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .search-bar input {
@@ -385,8 +366,13 @@ defineExpose({ stopAudio })
   font-family: inherit;
 }
 
-.search-bar input:focus { border-color: #00d9ff; }
-.search-bar input::placeholder { color: rgba(255, 255, 255, 0.4); }
+.search-bar input:focus {
+  border-color: #00d9ff;
+}
+
+.search-bar input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
 
 .search-bar button {
   padding: 0.8rem 1.2rem;
@@ -402,6 +388,9 @@ defineExpose({ stopAudio })
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .playlist-card {
@@ -547,7 +536,11 @@ defineExpose({ stopAudio })
   margin-bottom: 1rem;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* Drawing Phase */
 .drawing-phase {
@@ -556,7 +549,8 @@ defineExpose({ stopAudio })
   flex-direction: column;
 }
 
-.drawer-view, .guesser-view {
+.drawer-view,
+.guesser-view {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -667,8 +661,8 @@ defineExpose({ stopAudio })
 }
 
 .tracks-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
   max-height: 300px;
   overflow-y: auto;
@@ -684,6 +678,7 @@ defineExpose({ stopAudio })
   cursor: pointer;
   transition: all 0.2s;
   border: 2px solid transparent;
+  width: 100%;
 }
 
 .track-choice:hover {
@@ -693,10 +688,11 @@ defineExpose({ stopAudio })
 }
 
 .track-choice img {
-  width: 50px;
-  height: 50px;
-  border-radius: 6px;
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
   flex-shrink: 0;
+  object-fit: cover;
 }
 
 .track-choice .track-info {
@@ -709,15 +705,19 @@ defineExpose({ stopAudio })
   color: white;
   font-weight: 500;
   font-size: 0.9rem;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .track-choice .track-artist {
   display: block;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .play-preview-btn {
@@ -840,63 +840,90 @@ defineExpose({ stopAudio })
   .phase-header {
     margin-bottom: 0.75rem;
   }
-  
+
   .phase-icon {
     font-size: 2rem;
     margin-bottom: 0.25rem;
   }
-  
+
   .phase-header h2 {
     font-size: 1.1rem;
     margin: 0 0 0.25rem 0;
   }
-  
+
   .phase-header p {
     font-size: 0.85rem;
   }
-  
+
   .selection-area {
     flex: 1;
     min-height: 0;
   }
-  
+
   .playlists-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
   }
-  
+
+  .playlist-card {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    text-align: left;
+    padding: 1rem;
+  }
+
+  .playlist-card img,
+  .playlist-card .no-image {
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+    margin-bottom: 0;
+  }
+
+  .playlist-name {
+    flex: 1;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
   .playlist-card img {
     max-width: 100px;
     max-height: 100px;
   }
-  
+
   .playlist-card .no-image {
     max-width: 100px;
     max-height: 100px;
     font-size: 1.8rem;
   }
-  
+
   .tracks-grid {
-    grid-template-columns: 1fr;
     gap: 0.5rem;
-    max-height: none;
+    max-height: 250px;
   }
-  
+
   .track-choice {
-    padding: 0.5rem;
+    padding: 0.75rem;
   }
-  
+
   .track-choice img {
-    width: 40px;
-    height: 40px;
+    width: 55px;
+    height: 55px;
+    flex-shrink: 0;
   }
-  
+
   .track-choice .track-name {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
   }
-  
+
   .track-choice .track-artist {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
   }
 }
 
@@ -904,95 +931,105 @@ defineExpose({ stopAudio })
   .phase-header {
     margin-bottom: 0.5rem;
   }
-  
+
   .phase-icon {
     font-size: 1.5rem;
   }
-  
+
   .phase-header h2 {
     font-size: 1rem;
   }
-  
+
   .phase-header p {
     font-size: 0.8rem;
   }
-  
+
   .playlists-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
   }
-  
+
   .playlist-card {
-    padding: 0.5rem;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-align: left;
+    padding: 0.75rem;
   }
-  
-  .playlist-card img {
-    max-width: 80px;
-    max-height: 80px;
-    margin: 0 auto 0.25rem;
-  }
-  
+
+  .playlist-card img,
   .playlist-card .no-image {
-    max-width: 80px;
-    max-height: 80px;
-    margin: 0 auto 0.25rem;
+    width: 60px;
+    height: 60px;
+    flex-shrink: 0;
+    margin-bottom: 0;
+  }
+
+  .playlist-card .no-image {
     font-size: 1.5rem;
   }
-  
+
   .playlist-name {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
   }
-  
+
   .search-bar {
     margin-bottom: 0.75rem;
   }
-  
+
   .search-bar input {
     padding: 0.6rem 0.8rem;
     font-size: 0.9rem;
   }
-  
+
   .search-bar button {
     padding: 0.6rem 1rem;
     font-size: 1rem;
   }
-  
+
   .track-to-draw {
     padding: 0.75rem;
     gap: 0.75rem;
   }
-  
+
   .track-to-draw img {
     width: 50px;
     height: 50px;
   }
-  
+
   .track-to-draw .track-name {
     font-size: 0.95rem;
   }
-  
+
   .track-to-draw .track-artist {
     font-size: 0.8rem;
   }
-  
+
   .guess-header {
     padding: 0.75rem;
   }
-  
+
   .guess-header .icon {
     font-size: 1.5rem;
   }
-  
+
   .guess-header p {
     font-size: 0.9rem;
   }
-  
+
   .play-btn {
     width: 36px;
     height: 36px;
     font-size: 1rem;
   }
-  
+
   .play-preview-btn {
     width: 32px;
     height: 32px;

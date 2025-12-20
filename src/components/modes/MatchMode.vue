@@ -7,11 +7,16 @@ const props = defineProps({
   pseudo: String,
   otherPlayer: Object,
   currentTheme: String,
+  currentThemeType: String,
   opponentReady: Boolean,
   roundResult: Object,
   scores: Object,
   readyCount: Number,
   skipCount: Number
+})
+
+const gameProgress = computed(() => {
+  return window.gameProgress || null
 })
 
 const emit = defineEmits(['submit', 'nextRound', 'skip', 'playAudio', 'stopAudio'])
@@ -78,30 +83,30 @@ const playPreview = async (track) => {
     stopAudio()
     return
   }
-  
+
   if (loadingPreviewId.value === track.id) return
-  
+
   stopAudio()
-  
+
   let previewUrl = track.previewUrl
-  
+
   if (!previewUrl) {
     loadingPreviewId.value = track.id
     previewUrl = await getPreviewUrl(track.id)
     loadingPreviewId.value = null
-    
+
     if (previewUrl) {
       track.previewUrl = previewUrl
     }
   }
-  
+
   if (!previewUrl) return
-  
+
   currentAudio.value = new Audio(previewUrl)
   currentAudio.value.volume = 0.5
   currentAudio.value.play()
   playingTrackId.value = track.id
-  
+
   currentAudio.value.onended = () => {
     playingTrackId.value = null
   }
@@ -125,7 +130,11 @@ defineExpose({ stopAudio })
 <template>
   <div class="match-mode">
     <div class="theme-banner" v-if="currentTheme">
-      <span class="theme-label">Thème</span>
+      <div class="theme-header">
+        <span class="theme-label">{{ currentThemeType === 'artist' ? 'Artiste' : 'Thème' }}</span>
+        <span v-if="gameProgress" class="round-counter">Round {{ gameProgress.currentRound }}/{{
+          gameProgress.totalRounds }}</span>
+      </div>
       <span class="theme-name">{{ currentTheme }}</span>
     </div>
 
@@ -137,37 +146,23 @@ defineExpose({ stopAudio })
     <div v-else-if="!roundResult" class="selection-phase">
       <div class="search-section">
         <div class="search-bar">
-          <input 
-            v-model="searchQuery"
-            type="text"
-            placeholder="Rechercher une musique..."
-            @keyup.enter="handleSearch"
-            :disabled="hasSubmitted"
-          />
+          <input v-model="searchQuery" type="text" placeholder="Rechercher une musique..." @keyup.enter="handleSearch"
+            :disabled="hasSubmitted" />
           <button @click="handleSearch" :disabled="isSearching || hasSubmitted">
             {{ isSearching ? '...' : '🔍' }}
           </button>
         </div>
 
         <div class="search-results" v-if="searchResults.length">
-          <div 
-            v-for="track in searchResults" 
-            :key="track.id"
-            class="track-item"
-            :class="{ selected: isSelected(track.id), disabled: hasSubmitted }"
-            @click="selectTrack(track)"
-          >
+          <div v-for="track in searchResults" :key="track.id" class="track-item"
+            :class="{ selected: isSelected(track.id), disabled: hasSubmitted }" @click="selectTrack(track)">
             <img :src="track.image" :alt="track.name" class="track-image" />
             <div class="track-info">
               <span class="track-name">{{ track.name }}</span>
               <span class="track-artist">{{ track.artist }}</span>
             </div>
-            <button 
-              class="play-btn"
-              :class="{ loading: loadingPreviewId === track.id }"
-              @click.stop="playPreview(track)"
-              title="Écouter"
-            >
+            <button class="play-btn" :class="{ loading: loadingPreviewId === track.id }"
+              @click.stop="playPreview(track)" title="Écouter">
               <span v-if="loadingPreviewId === track.id" class="btn-loader"></span>
               <span v-else>{{ playingTrackId === track.id ? '⏸' : '▶' }}</span>
             </button>
@@ -179,44 +174,28 @@ defineExpose({ stopAudio })
       <div class="selected-section">
         <h3>Tes choix ({{ selectedTracks.length }}/3)</h3>
         <div class="selected-tracks">
-          <div 
-            v-for="(track, index) in selectedTracks" 
-            :key="track.id"
-            class="selected-track"
-          >
+          <div v-for="(track, index) in selectedTracks" :key="track.id" class="selected-track">
             <span class="track-number">{{ index + 1 }}</span>
             <img :src="track.image" :alt="track.name" />
             <div class="track-info">
               <span class="track-name">{{ track.name }}</span>
               <span class="track-artist">{{ track.artist }}</span>
             </div>
-            <button 
-              class="play-btn small"
-              :class="{ loading: loadingPreviewId === track.id }"
-              @click="playPreview(track)"
-            >
+            <button class="play-btn small" :class="{ loading: loadingPreviewId === track.id }"
+              @click="playPreview(track)">
               <span v-if="loadingPreviewId === track.id" class="btn-loader"></span>
               <span v-else>{{ playingTrackId === track.id ? '⏸' : '▶' }}</span>
             </button>
-            <button 
-              v-if="!hasSubmitted"
-              class="remove-btn"
-              @click="selectTrack(track)"
-            >✕</button>
+            <button v-if="!hasSubmitted" class="remove-btn" @click="selectTrack(track)">✕</button>
           </div>
-          <div v-for="i in (3 - selectedTracks.length)" :key="'empty-'+i" class="selected-track empty">
+          <div v-for="i in (3 - selectedTracks.length)" :key="'empty-' + i" class="selected-track empty">
             <span class="track-number">{{ selectedTracks.length + i }}</span>
             <span class="empty-text">Choisis une musique</span>
           </div>
         </div>
 
         <div class="submit-section">
-          <button 
-            v-if="!hasSubmitted"
-            class="btn-submit"
-            :disabled="selectedTracks.length !== 3"
-            @click="handleSubmit"
-          >
+          <button v-if="!hasSubmitted" class="btn-submit" :disabled="selectedTracks.length !== 3" @click="handleSubmit">
             Valider mes choix
           </button>
           <div v-else class="waiting-opponent">
@@ -233,7 +212,7 @@ defineExpose({ stopAudio })
 
     <div v-else class="results-phase">
       <h2>Résultats</h2>
-      
+
       <div class="matches-info">
         <span class="matches-count">{{ roundResult.matches.length }}</span>
         <span class="matches-label">musique{{ roundResult.matches.length > 1 ? 's' : '' }} en commun !</span>
@@ -242,22 +221,16 @@ defineExpose({ stopAudio })
       <div class="results-grid">
         <div class="player-results">
           <h4>{{ pseudo }} (toi)</h4>
-          <div 
+          <div
             v-for="track in roundResult.player1?.pseudo === pseudo ? roundResult.player1.tracks : roundResult.player2.tracks"
-            :key="track.id"
-            class="result-track"
-            :class="{ match: isMatch(track.id) }"
-          >
+            :key="track.id" class="result-track" :class="{ match: isMatch(track.id) }">
             <img :src="track.image" :alt="track.name" />
             <div class="track-info">
               <span class="track-name">{{ track.name }}</span>
               <span class="track-artist">{{ track.artist }}</span>
             </div>
-            <button 
-              class="play-btn small"
-              :class="{ loading: loadingPreviewId === track.id }"
-              @click="playPreview(track)"
-            >
+            <button class="play-btn small" :class="{ loading: loadingPreviewId === track.id }"
+              @click="playPreview(track)">
               <span v-if="loadingPreviewId === track.id" class="btn-loader"></span>
               <span v-else>{{ playingTrackId === track.id ? '⏸' : '▶' }}</span>
             </button>
@@ -267,22 +240,16 @@ defineExpose({ stopAudio })
 
         <div class="player-results">
           <h4>{{ otherPlayer?.pseudo }}</h4>
-          <div 
+          <div
             v-for="track in roundResult.player1?.pseudo !== pseudo ? roundResult.player1.tracks : roundResult.player2.tracks"
-            :key="track.id"
-            class="result-track"
-            :class="{ match: isMatch(track.id) }"
-          >
+            :key="track.id" class="result-track" :class="{ match: isMatch(track.id) }">
             <img :src="track.image" :alt="track.name" />
             <div class="track-info">
               <span class="track-name">{{ track.name }}</span>
               <span class="track-artist">{{ track.artist }}</span>
             </div>
-            <button 
-              class="play-btn small"
-              :class="{ loading: loadingPreviewId === track.id }"
-              @click="playPreview(track)"
-            >
+            <button class="play-btn small" :class="{ loading: loadingPreviewId === track.id }"
+              @click="playPreview(track)">
               <span v-if="loadingPreviewId === track.id" class="btn-loader"></span>
               <span v-else>{{ playingTrackId === track.id ? '⏸' : '▶' }}</span>
             </button>
@@ -301,7 +268,9 @@ defineExpose({ stopAudio })
 </template>
 
 <style scoped>
-.match-mode { height: 100%; }
+.match-mode {
+  height: 100%;
+}
 
 .waiting-start {
   display: flex;
@@ -322,7 +291,11 @@ defineExpose({ stopAudio })
   margin-bottom: 1rem;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 .theme-banner {
   text-align: center;
@@ -333,12 +306,41 @@ defineExpose({ stopAudio })
   border: 1px solid rgba(233, 69, 96, 0.3);
 }
 
-.theme-label { display: block; color: rgba(255, 255, 255, 0.6); font-size: 0.85rem; margin-bottom: 0.25rem; }
-.theme-name { font-size: 1.8rem; font-weight: 700; color: white; }
+.theme-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
 
-.selection-phase { display: flex; flex-direction: column; gap: 1.5rem; }
+.theme-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+}
 
-.search-bar { display: flex; gap: 0.5rem; }
+.round-counter {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.theme-name {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: white;
+}
+
+.selection-phase {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.search-bar {
+  display: flex;
+  gap: 0.5rem;
+}
 
 .search-bar input {
   flex: 1;
@@ -352,9 +354,17 @@ defineExpose({ stopAudio })
   font-family: inherit;
 }
 
-.search-bar input:focus { border-color: #00d9ff; }
-.search-bar input::placeholder { color: rgba(255, 255, 255, 0.4); }
-.search-bar input:disabled { opacity: 0.5; }
+.search-bar input:focus {
+  border-color: #00d9ff;
+}
+
+.search-bar input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.search-bar input:disabled {
+  opacity: 0.5;
+}
 
 .search-bar button {
   padding: 0.8rem 1.2rem;
@@ -367,8 +377,14 @@ defineExpose({ stopAudio })
   transition: transform 0.2s;
 }
 
-.search-bar button:hover:not(:disabled) { transform: scale(1.05); }
-.search-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
+.search-bar button:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+
+.search-bar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .search-results {
   display: flex;
@@ -391,15 +407,50 @@ defineExpose({ stopAudio })
   border: 2px solid transparent;
 }
 
-.track-item:hover:not(.disabled) { background: rgba(255, 255, 255, 0.1); }
-.track-item.selected { border-color: #e94560; background: rgba(233, 69, 96, 0.15); }
-.track-item.disabled { opacity: 0.6; cursor: not-allowed; }
+.track-item:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
 
-.track-image { width: 45px; height: 45px; border-radius: 6px; object-fit: cover; }
+.track-item.selected {
+  border-color: #e94560;
+  background: rgba(233, 69, 96, 0.15);
+}
 
-.track-info { flex: 1; min-width: 0; }
-.track-name { display: block; color: white; font-weight: 500; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.track-artist { display: block; color: rgba(255, 255, 255, 0.5); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track-item.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.track-image {
+  width: 45px;
+  height: 45px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.track-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.track-name {
+  display: block;
+  color: white;
+  font-weight: 500;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-artist {
+  display: block;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .play-btn {
   width: 36px;
@@ -414,9 +465,21 @@ defineExpose({ stopAudio })
   flex-shrink: 0;
 }
 
-.play-btn:hover:not(.loading) { background: rgba(0, 217, 255, 0.3); transform: scale(1.1); }
-.play-btn.small { width: 30px; height: 30px; font-size: 0.8rem; }
-.play-btn.loading { opacity: 0.7; cursor: wait; }
+.play-btn:hover:not(.loading) {
+  background: rgba(0, 217, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.play-btn.small {
+  width: 30px;
+  height: 30px;
+  font-size: 0.8rem;
+}
+
+.play-btn.loading {
+  opacity: 0.7;
+  cursor: wait;
+}
 
 .btn-loader {
   width: 12px;
@@ -428,11 +491,23 @@ defineExpose({ stopAudio })
   display: inline-block;
 }
 
-.check { color: #e94560; font-size: 1.2rem; font-weight: bold; }
+.check {
+  color: #e94560;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
 
-.selected-section h3 { color: white; margin: 0 0 1rem 0; font-size: 1rem; }
+.selected-section h3 {
+  color: white;
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+}
 
-.selected-tracks { display: flex; flex-direction: column; gap: 0.5rem; }
+.selected-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
 
 .selected-track {
   display: flex;
@@ -463,9 +538,21 @@ defineExpose({ stopAudio })
   flex-shrink: 0;
 }
 
-.selected-track.empty .track-number { background: rgba(255, 255, 255, 0.1); }
-.selected-track img { width: 40px; height: 40px; border-radius: 6px; flex-shrink: 0; }
-.empty-text { color: rgba(255, 255, 255, 0.3); font-size: 0.85rem; }
+.selected-track.empty .track-number {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.selected-track img {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.empty-text {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.85rem;
+}
 
 .remove-btn {
   width: 28px;
@@ -479,9 +566,15 @@ defineExpose({ stopAudio })
   flex-shrink: 0;
 }
 
-.remove-btn:hover { background: rgba(233, 69, 96, 0.3); color: #e94560; }
+.remove-btn:hover {
+  background: rgba(233, 69, 96, 0.3);
+  color: #e94560;
+}
 
-.submit-section { margin-top: 1rem; text-align: center; }
+.submit-section {
+  margin-top: 1rem;
+  text-align: center;
+}
 
 .btn-submit {
   padding: 1rem 2.5rem;
@@ -496,8 +589,15 @@ defineExpose({ stopAudio })
   font-family: inherit;
 }
 
-.btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(233, 69, 96, 0.4); }
-.btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(233, 69, 96, 0.4);
+}
+
+.btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .btn-skip {
   margin-top: 0.75rem;
@@ -513,8 +613,8 @@ defineExpose({ stopAudio })
   font-family: inherit;
 }
 
-.btn-skip:hover { 
-  border-color: rgba(255, 255, 255, 0.4); 
+.btn-skip:hover {
+  border-color: rgba(255, 255, 255, 0.4);
   color: rgba(255, 255, 255, 0.9);
   background: rgba(255, 255, 255, 0.1);
 }
@@ -537,10 +637,18 @@ defineExpose({ stopAudio })
   animation: spin 1s linear infinite;
 }
 
-.results-phase { text-align: center; }
-.results-phase h2 { color: white; margin: 0 0 1.5rem 0; }
+.results-phase {
+  text-align: center;
+}
 
-.matches-info { margin-bottom: 2rem; }
+.results-phase h2 {
+  color: white;
+  margin: 0 0 1.5rem 0;
+}
+
+.matches-info {
+  margin-bottom: 2rem;
+}
 
 .matches-count {
   display: inline-block;
@@ -555,7 +663,10 @@ defineExpose({ stopAudio })
   margin-bottom: 0.5rem;
 }
 
-.matches-label { display: block; color: rgba(255, 255, 255, 0.7); }
+.matches-label {
+  display: block;
+  color: rgba(255, 255, 255, 0.7);
+}
 
 .results-grid {
   display: grid;
@@ -565,7 +676,11 @@ defineExpose({ stopAudio })
   margin-bottom: 2rem;
 }
 
-.player-results h4 { color: white; margin: 0 0 1rem 0; font-size: 1rem; }
+.player-results h4 {
+  color: white;
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+}
 
 .result-track {
   display: flex;
@@ -583,8 +698,15 @@ defineExpose({ stopAudio })
   background: rgba(74, 222, 128, 0.1);
 }
 
-.result-track img { width: 40px; height: 40px; border-radius: 6px; }
-.match-badge { font-size: 1.2rem; }
+.result-track img {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+}
+
+.match-badge {
+  font-size: 1.2rem;
+}
 
 .btn-next {
   padding: 1rem 2rem;
@@ -599,14 +721,28 @@ defineExpose({ stopAudio })
   font-family: inherit;
 }
 
-.btn-next:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0, 217, 255, 0.3); }
+.btn-next:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0, 217, 255, 0.3);
+}
 
-.search-results::-webkit-scrollbar { width: 5px; }
-.search-results::-webkit-scrollbar-track { background: transparent; }
-.search-results::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 3px; }
+.search-results::-webkit-scrollbar {
+  width: 5px;
+}
+
+.search-results::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.search-results::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
 
 @media (max-width: 900px) {
-  .results-grid { grid-template-columns: 1fr; gap: 1rem; }
+  .results-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 }
 </style>
-

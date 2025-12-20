@@ -57,13 +57,8 @@ const joinRoom = () => {
         </div>
 
         <div v-else class="join-form">
-          <input 
-            v-model="roomCode" 
-            type="text" 
-            placeholder="Code de la room..."
-            @keyup.enter="joinRoom"
-            maxlength="6"
-          />
+          <input v-model="roomCode" type="text" placeholder="Code de la room..." @keyup.enter="joinRoom"
+            maxlength="6" />
           <button @click="joinRoom" :disabled="!roomCode.trim()">
             Go !
           </button>
@@ -140,9 +135,19 @@ const joinRoom = () => {
 }
 
 @keyframes wave {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(20deg); }
-  75% { transform: rotate(-10deg); }
+
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  25% {
+    transform: rotate(20deg);
+  }
+
+  75% {
+    transform: rotate(-10deg);
+  }
 }
 
 h2 {
@@ -166,7 +171,8 @@ h2 {
   gap: 1rem;
 }
 
-.btn-create, .btn-join {
+.btn-create,
+.btn-join {
   width: 100%;
   padding: 1.2rem 2rem;
   font-size: 1.1rem;
@@ -283,10 +289,9 @@ h2 {
   .join-form {
     flex-direction: column;
   }
-  
+
   .join-form button {
     width: 100%;
   }
 }
 </style>
-

@@ -14,17 +14,46 @@ const isDrawing = ref(false)
 const currentColor = ref('#ffffff')
 const brushSize = ref(4)
 const lastPos = ref(null)
+const resizeTimeout = ref(null)
 
 const colors = ['#ffffff', '#e94560', '#00d9ff', '#4ade80', '#fbbf24', '#a855f7', '#000000']
 
 onMounted(() => {
   ctx.value = canvas.value.getContext('2d')
   resizeCanvas()
-  window.addEventListener('resize', resizeCanvas)
+  
+  // Utiliser ResizeObserver pour un meilleur contrôle du redimensionnement
+  let resizeObserver = null
+  if (window.ResizeObserver && canvas.value.parentElement) {
+    resizeObserver = new ResizeObserver((entries) => {
+      // Délai pour éviter les redimensionnements trop fréquents
+      if (resizeTimeout.value) {
+        clearTimeout(resizeTimeout.value)
+      }
+      resizeTimeout.value = setTimeout(() => {
+        resizeCanvas()
+      }, 100)
+    })
+    resizeObserver.observe(canvas.value.parentElement)
+    canvas.value._resizeObserver = resizeObserver
+  } else {
+    // Fallback sur window.resize
+    window.addEventListener('resize', resizeCanvas)
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', resizeCanvas)
+  
+  // Nettoyer le timeout
+  if (resizeTimeout.value) {
+    clearTimeout(resizeTimeout.value)
+  }
+  
+  // Nettoyer le ResizeObserver si présent
+  if (canvas.value && canvas.value._resizeObserver) {
+    canvas.value._resizeObserver.disconnect()
+  }
 })
 
 watch(() => props.strokes, (newStrokes) => {
@@ -39,11 +68,34 @@ watch(() => props.strokes, (newStrokes) => {
 }, { deep: true })
 
 const resizeCanvas = () => {
+  if (!canvas.value || !canvas.value.parentElement) return
+  
   const rect = canvas.value.parentElement.getBoundingClientRect()
-  canvas.value.width = rect.width
-  canvas.value.height = rect.height
+  const newWidth = rect.width
+  const newHeight = rect.height
+  
+  // Éviter le redimensionnement si les dimensions sont invalides ou trop petites
+  if (newWidth <= 0 || newHeight <= 0) return
+  
+  // Sauvegarder les strokes existants avant le redimensionnement
+  const existingStrokes = props.strokes ? [...props.strokes] : []
+  
+  // Redimensionner le canvas
+  canvas.value.width = newWidth
+  canvas.value.height = newHeight
   ctx.value.lineCap = 'round'
   ctx.value.lineJoin = 'round'
+  
+  // Redessiner tous les strokes existants
+  if (existingStrokes.length > 0) {
+    existingStrokes.forEach(stroke => {
+      if (stroke.type === 'clear') {
+        ctx.value.clearRect(0, 0, newWidth, newHeight)
+      } else {
+        drawSegment(stroke)
+      }
+    })
+  }
 }
 
 const getPos = (e) => {
@@ -166,6 +218,9 @@ defineExpose({ clearCanvas })
   border-radius: 12px;
   overflow: hidden;
   min-height: 300px;
+  position: relative;
+  /* Empêcher le redimensionnement automatique sur mobile quand le clavier s'affiche */
+  touch-action: none;
 }
 
 canvas {

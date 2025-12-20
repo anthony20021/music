@@ -15,6 +15,7 @@ const socketId = ref(socket.id || null)
 const gameStarted = ref(false)
 const currentMode = ref(null)
 const currentTheme = ref(null)
+const currentThemeType = ref(null) // 'theme' ou 'artist'
 const opponentReady = ref(false)
 const roundResult = shallowRef(null)
 const scores = shallowRef({})
@@ -63,15 +64,22 @@ socket.on('chat-message', (message) => {
   triggerRef(messages)
 })
 
-socket.on('game-started', ({ theme, mode, game2NextChooser: nextChooserId }) => {
+socket.on('game-started', (data) => {
+  const { theme, themeType, mode, game2NextChooser: nextChooserId, totalRounds, currentRound, themeSequence } = data
+
   gameStarted.value = true
   currentMode.value = mode
   currentTheme.value = theme
+  currentThemeType.value = themeType || 'theme'
   opponentReady.value = false
   roundResult.value = null
   readyCount.value = 0
   if (nextChooserId) {
     game2NextChooser.value = nextChooserId
+  }
+  // Stocker les infos de progression si disponibles
+  if (totalRounds !== undefined) {
+    window.gameProgress = { totalRounds, currentRound }
   }
 })
 
@@ -99,12 +107,25 @@ socket.on('ready-count', (count) => {
   readyCount.value = count
 })
 
-socket.on('new-round', ({ theme }) => {
+socket.on('new-round', ({ theme, themeType, totalRounds, currentRound }) => {
   currentTheme.value = theme
+  currentThemeType.value = themeType || 'theme'
   opponentReady.value = false
   roundResult.value = null
   readyCount.value = 0
   skipCount.value = 0
+  // Mettre à jour la progression
+  if (totalRounds !== undefined && currentRound !== undefined) {
+    window.gameProgress = { totalRounds, currentRound }
+  }
+})
+
+socket.on('game-ended', ({ scores }) => {
+  // Le jeu est terminé
+  currentTheme.value = null
+  currentThemeType.value = null
+  scores.value = scores
+  triggerRef(scores)
 })
 
 socket.on('skip-count', (count) => {
@@ -185,6 +206,7 @@ export function useSocket() {
     gameStarted.value = false
     currentMode.value = null
     currentTheme.value = null
+    currentThemeType.value = null
     opponentReady.value = false
     roundResult.value = null
     scores.value = {}
@@ -246,6 +268,7 @@ export function useSocket() {
     gameStarted,
     currentMode,
     currentTheme,
+    currentThemeType,
     opponentReady,
     roundResult,
     scores,

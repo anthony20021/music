@@ -18,10 +18,12 @@ const normalizeString = (str) => {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // Enlève les accents
-    .replace(/[^a-z0-9\s]/g, '') 
+    .replace(/[^a-z0-9\s]/g, '')
     .trim()
 }
-const themes = JSON.parse(readFileSync(join(__dirname, '../src/data/themes.json'), 'utf-8')).themes
+const themesData = JSON.parse(readFileSync(join(__dirname, '../src/data/themes.json'), 'utf-8'))
+const themes = themesData.themes
+const artists = themesData.artists
 
 const PORT = process.env.PORT || 3001
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
@@ -39,7 +41,7 @@ app.get('/api/preview/:trackId', async (req, res) => {
   try {
     const { trackId } = req.params
     const tracks = await getTracks(`https://open.spotify.com/track/${trackId}`)
-    
+
     if (tracks && tracks.length > 0 && tracks[0].previewUrl) {
       res.json({ previewUrl: tracks[0].previewUrl })
     } else {
@@ -60,8 +62,57 @@ const io = new Server(server, {
 
 const rooms = new Map()
 
-function getRandomTheme() {
-  return themes[Math.floor(Math.random() * themes.length)]
+// Fonction pour mélanger un tableau (Fisher-Yates)
+function shuffleArray(array) {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+// Génère un tableau aléatoire alternant thèmes et artistes
+function generateThemeSequence() {
+  // Mélanger les thèmes et artistes séparément
+  const shuffledThemes = shuffleArray(themes)
+  const shuffledArtists = shuffleArray(artists)
+
+  // Créer un tableau alternant thème/artiste
+  const sequence = []
+  const maxLength = Math.min(shuffledThemes.length, shuffledArtists.length) * 2
+
+  for (let i = 0; i < maxLength; i++) {
+    if (i % 2 === 0) {
+      // Index pair = thème
+      const themeIndex = Math.floor(i / 2)
+      if (themeIndex < shuffledThemes.length) {
+        sequence.push({ type: 'theme', value: shuffledThemes[themeIndex] })
+      }
+    } else {
+      // Index impair = artiste
+      const artistIndex = Math.floor(i / 2)
+      if (artistIndex < shuffledArtists.length) {
+        sequence.push({ type: 'artist', value: shuffledArtists[artistIndex] })
+      }
+    }
+  }
+
+  return sequence
+}
+
+// Récupère le thème/artiste suivant depuis la séquence
+function getNextTheme(room) {
+  if (!room.themeSequence || room.themeIndex === undefined) {
+    return null
+  }
+
+  if (room.themeIndex >= room.themeSequence.length) {
+    // Fin du jeu
+    return null
+  }
+
+  return room.themeSequence[room.themeIndex]
 }
 
 function checkRoundComplete(room) {
@@ -70,14 +121,14 @@ function checkRoundComplete(room) {
     const [player1Id, player2Id] = submissions
     const tracks1 = room.submissions[player1Id].map(t => t.id)
     const tracks2 = room.submissions[player2Id].map(t => t.id)
-    
+
     const matches = tracks1.filter(id => tracks2.includes(id))
-    
+
     matches.forEach(() => {
       room.scores[player1Id] = (room.scores[player1Id] || 0) + 1
       room.scores[player2Id] = (room.scores[player2Id] || 0) + 1
     })
-    
+
     return {
       player1: {
         id: player1Id,
@@ -100,10 +151,10 @@ io.on('connection', (socket) => {
 
   socket.on('join-room', ({ roomId, pseudo }) => {
     socket.join(roomId)
-    
+
     if (!rooms.has(roomId)) {
-      rooms.set(roomId, { 
-        players: [], 
+      rooms.set(roomId, {
+        players: [],
         messages: [],
         creator: socket.id,
         mode: null,
@@ -114,28 +165,37 @@ io.on('connection', (socket) => {
         skipVotes: []
       })
     }
-    
+
     const room = rooms.get(roomId)
     const existingPlayer = room.players.find(p => p.id === socket.id)
-    
+
     if (!existingPlayer) {
       room.players.push({ id: socket.id, pseudo })
       room.scores[socket.id] = room.scores[socket.id] || 0
     }
-    
+
     io.to(roomId).emit('players-update', room.players)
     socket.emit('room-info', { isCreator: room.creator === socket.id })
     socket.emit('chat-history', room.messages)
-    
+
     if (room.theme) {
-      if (room.mode === 'pictionary' && room.game2NextChooser) {
-        socket.emit('game-started', { theme: room.theme, mode: room.mode, game2NextChooser: room.game2NextChooser })
+      const themeData = typeof room.theme === 'string' ? { type: 'theme', value: room.theme } : room.theme
+      if ((room.mode === 'pictionary' || room.mode === 'game2') && room.game2NextChooser) {
+        socket.emit('game-started', { theme: themeData.value, themeType: themeData.type, mode: room.mode, game2NextChooser: room.game2NextChooser })
       } else {
-        socket.emit('game-started', { theme: room.theme, mode: room.mode })
+        const payload = {
+          theme: themeData.value,
+          themeType: themeData.type,
+          mode: room.mode,
+          totalRounds: room.themeSequence ? room.themeSequence.length : null,
+          currentRound: room.themeIndex !== undefined ? room.themeIndex + 1 : null,
+          themeSequence: room.themeSequence ? room.themeSequence.map(s => ({ type: s.type, value: s.value })) : null
+        }
+        socket.emit('game-started', payload)
       }
       socket.emit('scores-update', room.scores)
     }
-    
+
     // Si le jeu Pictionary a déjà commencé, envoyer les infos
     if (room.game2Track) {
       if (room.game2Drawer === socket.id) {
@@ -151,18 +211,49 @@ io.on('connection', (socket) => {
 
   socket.on('start-game', ({ roomId, mode }) => {
     const room = rooms.get(roomId)
-    if (room) {
-      room.mode = mode || 'match'
-      room.theme = getRandomTheme()
-      room.submissions = {}
-      room.readyForNext = []
-      
-      // Pour le mode Pictionary, initialiser qui choisit la playlist (le créateur au début)
-      if (mode === 'pictionary') {
-        room.game2NextChooser = room.creator
-        io.to(roomId).emit('game-started', { theme: room.theme, mode: room.mode, game2NextChooser: room.game2NextChooser })
-      } else {
-        io.to(roomId).emit('game-started', { theme: room.theme, mode: room.mode })
+    if (!room) {
+      return
+    }
+    room.mode = mode || 'match'
+
+    // Pour le mode Match, générer la séquence de thèmes/artistes
+    if (mode === 'match') {
+      room.themeSequence = generateThemeSequence()
+      room.themeIndex = 0
+      room.theme = getNextTheme(room)
+    } else {
+      // Pour Pictionary, on garde l'ancien système
+      room.theme = { type: 'theme', value: themes[Math.floor(Math.random() * themes.length)] }
+    }
+
+    room.submissions = {}
+    room.readyForNext = []
+
+    // Pour le mode Pictionary, initialiser qui choisit la playlist (le créateur au début)
+    if (mode === 'pictionary' || mode === 'game2') {
+      room.game2NextChooser = room.creator
+      io.to(roomId).emit('game-started', { theme: room.theme.value, themeType: room.theme.type, mode: room.mode, game2NextChooser: room.game2NextChooser })
+    } else {
+      if (room.theme) {
+        // Préparer la séquence pour l'envoi (s'assurer que c'est un tableau simple)
+        let sequenceForClient = null
+        if (room.themeSequence && Array.isArray(room.themeSequence)) {
+          sequenceForClient = room.themeSequence.map(s => ({
+            type: String(s.type),
+            value: String(s.value)
+          }))
+        }
+
+        const payload = {
+          theme: String(room.theme.value),
+          themeType: String(room.theme.type),
+          mode: String(room.mode),
+          totalRounds: room.themeSequence ? Number(room.themeSequence.length) : null,
+          currentRound: room.themeIndex !== undefined ? Number(room.themeIndex + 1) : null,
+          themeSequence: sequenceForClient
+        }
+
+        io.to(roomId).emit('game-started', payload)
       }
     }
   })
@@ -171,12 +262,12 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId)
     if (room) {
       room.submissions[socket.id] = tracks
-      
+
       const otherPlayers = room.players.filter(p => p.id !== socket.id)
       otherPlayers.forEach(p => {
         io.to(p.id).emit('opponent-ready')
       })
-      
+
       const result = checkRoundComplete(room)
       if (result) {
         io.to(roomId).emit('round-result', result)
@@ -190,15 +281,37 @@ io.on('connection', (socket) => {
       if (!room.readyForNext.includes(socket.id)) {
         room.readyForNext.push(socket.id)
       }
-      
+
       io.to(roomId).emit('ready-count', room.readyForNext.length)
-      
+
       if (room.readyForNext.length === 2) {
-        room.theme = getRandomTheme()
-        room.submissions = {}
-        room.readyForNext = []
-        room.skipVotes = []
-        io.to(roomId).emit('new-round', { theme: room.theme })
+        // Passer au thème/artiste suivant
+        if (room.themeSequence && room.themeIndex !== undefined) {
+          room.themeIndex++
+          room.theme = getNextTheme(room)
+
+          if (!room.theme) {
+            // Fin du jeu
+            io.to(roomId).emit('game-ended', { scores: room.scores })
+          } else {
+            room.submissions = {}
+            room.readyForNext = []
+            room.skipVotes = []
+            io.to(roomId).emit('new-round', {
+              theme: room.theme.value,
+              themeType: room.theme.type,
+              totalRounds: room.themeSequence.length,
+              currentRound: room.themeIndex + 1
+            })
+          }
+        } else {
+          // Fallback pour les anciennes parties
+          room.theme = { type: 'theme', value: themes[Math.floor(Math.random() * themes.length)] }
+          room.submissions = {}
+          room.readyForNext = []
+          room.skipVotes = []
+          io.to(roomId).emit('new-round', { theme: room.theme.value, themeType: room.theme.type })
+        }
       }
     }
   })
@@ -209,15 +322,37 @@ io.on('connection', (socket) => {
       if (!room.skipVotes.includes(socket.id)) {
         room.skipVotes.push(socket.id)
       }
-      
+
       io.to(roomId).emit('skip-count', room.skipVotes.length)
-      
+
       if (room.skipVotes.length === 2) {
-        room.theme = getRandomTheme()
-        room.submissions = {}
-        room.readyForNext = []
-        room.skipVotes = []
-        io.to(roomId).emit('new-round', { theme: room.theme })
+        // Passer au thème/artiste suivant
+        if (room.themeSequence && room.themeIndex !== undefined) {
+          room.themeIndex++
+          room.theme = getNextTheme(room)
+
+          if (!room.theme) {
+            // Fin du jeu
+            io.to(roomId).emit('game-ended', { scores: room.scores })
+          } else {
+            room.submissions = {}
+            room.readyForNext = []
+            room.skipVotes = []
+            io.to(roomId).emit('new-round', {
+              theme: room.theme.value,
+              themeType: room.theme.type,
+              totalRounds: room.themeSequence.length,
+              currentRound: room.themeIndex + 1
+            })
+          }
+        } else {
+          // Fallback pour les anciennes parties
+          room.theme = { type: 'theme', value: themes[Math.floor(Math.random() * themes.length)] }
+          room.submissions = {}
+          room.readyForNext = []
+          room.skipVotes = []
+          io.to(roomId).emit('new-round', { theme: room.theme.value, themeType: room.theme.type })
+        }
       }
     }
   })
@@ -230,12 +365,12 @@ io.on('connection', (socket) => {
       if (room.game2NextChooser && room.game2NextChooser !== socket.id) {
         return // Ce n'est pas ton tour de choisir
       }
-      
+
       room.game2Track = track
       room.game2PlaylistTracks = playlistTracks || []
       room.game2Drawer = room.players.find(p => p.id !== socket.id)?.id
       room.game2Guesser = socket.id
-      
+
       // Envoyer la track au dessinateur
       if (room.game2Drawer) {
         io.to(room.game2Drawer).emit('game2-start-drawing', { track })
@@ -266,7 +401,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId)
     if (room && room.game2Track) {
       let isCorrect = false
-      
+
       // Si guess est un objet avec trackId, comparer directement les IDs
       if (typeof guess === 'object' && guess.trackId) {
         isCorrect = guess.trackId === room.game2Track.id
@@ -275,25 +410,25 @@ io.on('connection', (socket) => {
         const trackNameNorm = normalizeString(room.game2Track.name)
         const artistNorm = normalizeString(room.game2Track.artist)
         const guessNorm = normalizeString(typeof guess === 'string' ? guess : guess.trackName || '')
-        
-        isCorrect = trackNameNorm.includes(guessNorm) || 
-                    artistNorm.includes(guessNorm) ||
-                    guessNorm.includes(trackNameNorm) ||
-                    guessNorm.includes(artistNorm)
+
+        isCorrect = trackNameNorm.includes(guessNorm) ||
+          artistNorm.includes(guessNorm) ||
+          guessNorm.includes(trackNameNorm) ||
+          guessNorm.includes(artistNorm)
       }
-      
+
       if (isCorrect) {
         // Seul le guesser gagne un point
         room.scores[socket.id] = (room.scores[socket.id] || 0) + 1
       }
-      
+
       io.to(roomId).emit('game2-result', {
         correct: isCorrect,
         guess: typeof guess === 'object' && guess.trackName ? guess.trackName : guess,
         track: room.game2Track,
         scores: room.scores
       })
-      
+
       room.game2Track = null
       room.game2Drawer = null
       room.game2Guesser = null
@@ -307,30 +442,30 @@ io.on('connection', (socket) => {
       if (!room.game2Ready.includes(socket.id)) {
         room.game2Ready.push(socket.id)
       }
-      
+
       io.to(roomId).emit('game2-ready-count', room.game2Ready.length)
-      
+
       if (room.game2Ready.length === 2) {
         room.game2Ready = []
-        
+
         // Alterner : celui qui était drawer devient guesser (et choisit la playlist)
         // On alterne toujours depuis le dernier chooser
         const lastChooser = room.game2NextChooser || room.creator
         const otherPlayer = room.players.find(p => p.id !== lastChooser)
         room.game2NextChooser = otherPlayer?.id || room.creator
-        
-        console.log('Pictionary alternance:', { 
-          lastChooser, 
-          newChooser: room.game2NextChooser, 
+
+        console.log('Pictionary alternance:', {
+          lastChooser,
+          newChooser: room.game2NextChooser,
           players: room.players.map(p => ({ id: p.id, pseudo: p.pseudo }))
         })
-        
+
         // Réinitialiser l'état du jeu
         room.game2Track = null
         room.game2PlaylistTracks = []
         room.game2Drawer = null
         room.game2Guesser = null
-        
+
         io.to(roomId).emit('game2-new-round', { nextChooser: room.game2NextChooser })
       }
     }
@@ -345,13 +480,13 @@ io.on('connection', (socket) => {
         message,
         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
       }
-      
+
       room.messages.push(chatMessage)
-      
+
       if (room.messages.length > 50) {
         room.messages.shift()
       }
-      
+
       io.to(roomId).emit('chat-message', chatMessage)
     }
   })
@@ -371,7 +506,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId)
     if (room) {
       room.players = room.players.filter(p => p.id !== playerId)
-      
+
       if (room.players.length === 0) {
         rooms.delete(roomId)
       } else {
