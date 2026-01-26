@@ -156,3 +156,132 @@ export async function getPlaylistTracks(playlistId, limit = 5) {
   
   return tracksWithPreviews
 }
+
+export async function getPopularTracksByCategory(searchTerm, limit = 20) {
+  try {
+    const token = await getAccessToken()
+    if (!token) {
+      throw new Error('Impossible d\'obtenir le token d\'accès Spotify')
+    }
+    
+    // Rechercher des tracks populaires avec le terme de recherche (augmenter la limite pour avoir plus de choix)
+    const response = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchTerm)}&type=track&limit=50&market=FR`,
+      {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error(`Erreur API Spotify: ${response.status}`)
+    }
+
+    const data = await response.json()
+    
+    console.log(`Recherche "${searchTerm}": ${data.tracks?.items?.length || 0} tracks trouvées`)
+    
+    if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) {
+      console.warn(`Aucune track trouvée pour "${searchTerm}"`)
+      return []
+    }
+    
+    // Trier par popularité (champ popularity de 0 à 100) - ne pas filtrer par preview_url maintenant
+    const sortedTracks = data.tracks.items
+      .filter(track => track && track.id) // Juste vérifier que la track existe
+      .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+      .slice(0, 10) // Prendre les 10 plus populaires
+    
+    console.log(`Après tri: ${sortedTracks.length} tracks (popularité: ${sortedTracks[0]?.popularity || 'N/A'})`)
+    
+    if (sortedTracks.length === 0) {
+      console.warn(`Aucune track valide après tri pour "${searchTerm}"`)
+      return []
+    }
+    
+    // Sélectionner une track au hasard parmi les 10 plus populaires
+    const randomTrack = sortedTracks[Math.floor(Math.random() * sortedTracks.length)]
+    
+    const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001'
+    
+    // Récupérer le previewUrl pour la track sélectionnée
+    let previewUrl = randomTrack.preview_url || null
+    
+    // Essayer de récupérer via le serveur si pas de preview_url direct
+    if (!previewUrl) {
+      try {
+        const previewResponse = await fetch(`${SERVER_URL}/api/preview/${randomTrack.id}`)
+        if (previewResponse.ok) {
+          const previewData = await previewResponse.json()
+          previewUrl = previewData.previewUrl || null
+        }
+      } catch (e) {
+        console.warn('Erreur récupération preview pour', randomTrack.id, e)
+      }
+    }
+    
+    // Si toujours pas de preview, essayer avec la track suivante dans la liste
+    if (!previewUrl && sortedTracks.length > 1) {
+      for (let i = 0; i < Math.min(5, sortedTracks.length); i++) {
+        const track = sortedTracks[i]
+        previewUrl = track.preview_url || null
+        
+        if (!previewUrl) {
+          try {
+            const previewResponse = await fetch(`${SERVER_URL}/api/preview/${track.id}`)
+            if (previewResponse.ok) {
+              const previewData = await previewResponse.json()
+              previewUrl = previewData.previewUrl || null
+              if (previewUrl) {
+                // Utiliser cette track à la place
+                return [{
+                  id: track.id,
+                  name: track.name,
+                  artist: track.artists.map(a => a.name).join(', '),
+                  album: track.album.name,
+                  image: track.album.images?.[1]?.url || track.album.images?.[0]?.url,
+                  previewUrl: previewUrl,
+                  duration: track.duration_ms,
+                  popularity: track.popularity
+                }]
+              }
+            }
+          } catch (e) {
+            // Continuer avec la suivante
+          }
+        } else {
+          // Utiliser cette track
+          return [{
+            id: track.id,
+            name: track.name,
+            artist: track.artists.map(a => a.name).join(', '),
+            album: track.album.name,
+            image: track.album.images?.[1]?.url || track.album.images?.[0]?.url,
+            previewUrl: previewUrl,
+            duration: track.duration_ms,
+            popularity: track.popularity
+          }]
+        }
+      }
+    }
+    
+    // Retourner un tableau avec une seule track (pour compatibilité avec le code existant)
+    if (!previewUrl) {
+      console.warn(`Aucune preview disponible pour les tracks de "${searchTerm}"`)
+      return []
+    }
+    
+    return [{
+      id: randomTrack.id,
+      name: randomTrack.name,
+      artist: randomTrack.artists.map(a => a.name).join(', '),
+      album: randomTrack.album.name,
+      image: randomTrack.album.images?.[1]?.url || randomTrack.album.images?.[0]?.url,
+      previewUrl: previewUrl,
+      duration: randomTrack.duration_ms,
+      popularity: randomTrack.popularity
+    }]
+  } catch (e) {
+    console.error('Erreur dans getPopularTracksByCategory:', e)
+    throw e
+  }
+}

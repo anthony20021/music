@@ -15,7 +15,8 @@ const selectedMode = ref('match')
 
 const gameModes = [
   { id: 'match', name: 'Match', icon: '🎯', desc: 'Trouvez les mêmes chansons' },
-  { id: 'game2', name: 'Pictionary', icon: '🎨', desc: 'Dessine pour faire deviner' }
+  { id: 'game2', name: 'Pictionary', icon: '🎨', desc: 'Dessine pour faire deviner' },
+  { id: 'blindtest', name: 'Blind Test', icon: '🎵', desc: 'Devine la musique' }
 ]
 
 // L'autre joueur (pas nous)

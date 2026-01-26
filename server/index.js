@@ -18,12 +18,101 @@ const normalizeString = (str) => {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // Enlève les accents
-    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/[^a-z0-9\s]/g, '') // Enlève la ponctuation
+    .replace(/\s+/g, ' ') // Remplace les espaces multiples par un seul
     .trim()
+}
+
+// Fonction pour calculer la similarité entre deux chaînes (distance de Levenshtein simplifiée)
+const calculateSimilarity = (str1, str2) => {
+  if (!str1 || !str2) return 0
+  if (str1 === str2) return 1
+  
+  const longer = str1.length > str2.length ? str1 : str2
+  const shorter = str1.length > str2.length ? str2 : str1
+  
+  if (longer.length === 0) return 1
+  
+  // Si la chaîne plus courte est contenue dans la plus longue, c'est bon
+  if (longer.includes(shorter)) return 0.9
+  
+  // Comparaison par mots
+  const words1 = str1.split(/\s+/).filter(w => w.length > 2)
+  const words2 = str2.split(/\s+/).filter(w => w.length > 2)
+  
+  if (words1.length === 0 || words2.length === 0) return 0
+  
+  // Compter les mots en commun
+  let commonWords = 0
+  for (const word1 of words1) {
+    for (const word2 of words2) {
+      if (word1 === word2 || word1.includes(word2) || word2.includes(word1)) {
+        commonWords++
+        break
+      }
+    }
+  }
+  
+  const similarity = commonWords / Math.max(words1.length, words2.length)
+  return similarity
+}
+
+// Vérifie si deux chaînes correspondent (tolérant aux fautes)
+const matchesString = (guess, correct) => {
+  if (!guess || !correct) return false
+  
+  const normalizedGuess = normalizeString(guess)
+  const normalizedCorrect = normalizeString(correct)
+  
+  // Correspondance exacte
+  if (normalizedGuess === normalizedCorrect) return true
+  
+  // L'un contient l'autre
+  if (normalizedCorrect.includes(normalizedGuess) || normalizedGuess.includes(normalizedCorrect)) {
+    return true
+  }
+  
+  // Similarité élevée (au moins 70% de similarité)
+  const similarity = calculateSimilarity(normalizedGuess, normalizedCorrect)
+  if (similarity >= 0.7) return true
+  
+  // Vérifier si au moins 2/3 des mots correspondent
+  const wordsGuess = normalizedGuess.split(/\s+/).filter(w => w.length > 2)
+  const wordsCorrect = normalizedCorrect.split(/\s+/).filter(w => w.length > 2)
+  
+  if (wordsGuess.length === 0 || wordsCorrect.length === 0) return false
+  
+  let matchingWords = 0
+  for (const wordGuess of wordsGuess) {
+    for (const wordCorrect of wordsCorrect) {
+      if (wordGuess === wordCorrect || 
+          wordGuess.includes(wordCorrect) || 
+          wordCorrect.includes(wordGuess) ||
+          (wordGuess.length > 4 && wordCorrect.length > 4 && 
+           Math.abs(wordGuess.length - wordCorrect.length) <= 1 &&
+           (wordGuess.startsWith(wordCorrect.substring(0, 3)) || 
+            wordCorrect.startsWith(wordGuess.substring(0, 3))))) {
+        matchingWords++
+        break
+      }
+    }
+  }
+  
+  // Au moins 2/3 des mots doivent correspondre
+  return matchingWords >= Math.ceil(wordsGuess.length * 0.67) || 
+         matchingWords >= Math.ceil(wordsCorrect.length * 0.67)
 }
 const themesData = JSON.parse(readFileSync(join(__dirname, '../src/data/themes.json'), 'utf-8'))
 const themes = themesData.themes
 const artists = themesData.artists
+
+let blindtestThemes = null
+try {
+  blindtestThemes = JSON.parse(readFileSync(join(__dirname, '../src/data/themes_blindtest.json'), 'utf-8'))
+} catch (e) {
+  console.warn('Impossible de charger themes_blindtest.json:', e.message)
+  blindtestThemes = { categories: [] }
+}
 
 const PORT = process.env.PORT || 3001
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
@@ -49,6 +138,21 @@ app.get('/api/preview/:trackId', async (req, res) => {
     }
   } catch {
     res.json({ previewUrl: null })
+  }
+})
+
+app.get('/themes_blindtest.json', (req, res) => {
+  try {
+    const themesBlindtestPath = join(__dirname, '../src/data/themes_blindtest.json')
+    if (existsSync(themesBlindtestPath)) {
+      const themesBlindtestData = readFileSync(themesBlindtestPath, 'utf-8')
+      res.setHeader('Content-Type', 'application/json')
+      res.send(themesBlindtestData)
+    } else {
+      res.status(404).json({ error: 'File not found' })
+    }
+  } catch (e) {
+    res.status(500).json({ error: 'Error reading file' })
   }
 })
 
@@ -182,6 +286,14 @@ io.on('connection', (socket) => {
       const themeData = typeof room.theme === 'string' ? { type: 'theme', value: room.theme } : room.theme
       if ((room.mode === 'pictionary' || room.mode === 'game2') && room.game2NextChooser) {
         socket.emit('game-started', { theme: themeData.value, themeType: themeData.type, mode: room.mode, game2NextChooser: room.game2NextChooser })
+      } else if (room.mode === 'blindtest') {
+        socket.emit('game-started', { mode: 'blindtest' })
+        if (room.blindtestTracks && room.blindtestTracks.length > 0) {
+          socket.emit('blindtest-tracks-set', { 
+            tracks: room.blindtestTracks, 
+            currentIndex: room.blindtestCurrentTrackIndex || 0 
+          })
+        }
       } else {
         const payload = {
           theme: themeData.value,
@@ -192,6 +304,16 @@ io.on('connection', (socket) => {
           themeSequence: room.themeSequence ? room.themeSequence.map(s => ({ type: s.type, value: s.value })) : null
         }
         socket.emit('game-started', payload)
+      }
+      socket.emit('scores-update', room.scores)
+    } else if (room.mode === 'blindtest') {
+      // Si le mode blindtest est déjà démarré mais sans theme
+      socket.emit('game-started', { mode: 'blindtest' })
+      if (room.blindtestTracks && room.blindtestTracks.length > 0) {
+        socket.emit('blindtest-tracks-set', { 
+          tracks: room.blindtestTracks, 
+          currentIndex: room.blindtestCurrentTrackIndex || 0 
+        })
       }
       socket.emit('scores-update', room.scores)
     }
@@ -221,6 +343,12 @@ io.on('connection', (socket) => {
       room.themeSequence = generateThemeSequence()
       room.themeIndex = 0
       room.theme = getNextTheme(room)
+    } else if (mode === 'blindtest') {
+      // Pour Blind Test, initialiser les tracks (sera chargé côté client)
+      room.blindtestTracks = []
+      room.blindtestCurrentTrackIndex = 0
+      room.blindtestSubmissions = {}
+      room.blindtestReadyForNext = []
     } else {
       // Pour Pictionary, on garde l'ancien système
       room.theme = { type: 'theme', value: themes[Math.floor(Math.random() * themes.length)] }
@@ -233,6 +361,9 @@ io.on('connection', (socket) => {
     if (mode === 'pictionary' || mode === 'game2') {
       room.game2NextChooser = room.creator
       io.to(roomId).emit('game-started', { theme: room.theme.value, themeType: room.theme.type, mode: room.mode, game2NextChooser: room.game2NextChooser })
+    } else if (mode === 'blindtest') {
+      // Pour Blind Test, envoyer l'événement de démarrage
+      io.to(roomId).emit('game-started', { mode: 'blindtest' })
     } else {
       if (room.theme) {
         // Préparer la séquence pour l'envoi (s'assurer que c'est un tableau simple)
@@ -467,6 +598,114 @@ io.on('connection', (socket) => {
         room.game2Guesser = null
 
         io.to(roomId).emit('game2-new-round', { nextChooser: room.game2NextChooser })
+      }
+    }
+  })
+
+  // Blind Test handlers
+  socket.on('blindtest-set-tracks', ({ roomId, tracks }) => {
+    const room = rooms.get(roomId)
+    if (room && room.mode === 'blindtest') {
+      room.blindtestTracks = tracks
+      room.blindtestCurrentTrackIndex = 0
+      room.blindtestSubmissions = {}
+      room.blindtestReadyForNext = []
+      io.to(roomId).emit('blindtest-tracks-set', { tracks, currentIndex: 0 })
+    }
+  })
+
+  socket.on('blindtest-submit-answer', ({ roomId, trackName, artistName }) => {
+    const room = rooms.get(roomId)
+    if (room && room.mode === 'blindtest' && room.blindtestTracks && room.blindtestTracks.length > 0) {
+      const currentTrack = room.blindtestTracks[room.blindtestCurrentTrackIndex]
+      if (!currentTrack) return
+
+      // Vérifier les correspondances avec une fonction plus souple
+      const nameCorrect = trackName && matchesString(trackName, currentTrack.name)
+      const artistCorrect = artistName && matchesString(artistName, currentTrack.artist)
+
+      // Calculer le score
+      let points = 0
+      if (nameCorrect && artistCorrect) {
+        points = 3
+      } else if (nameCorrect || artistCorrect) {
+        points = 1
+      }
+
+      // Ajouter les points
+      if (points > 0) {
+        room.scores[socket.id] = (room.scores[socket.id] || 0) + points
+      }
+
+      // Enregistrer la soumission
+      room.blindtestSubmissions[socket.id] = {
+        trackName,
+        artistName,
+        nameCorrect,
+        artistCorrect,
+        points,
+        correctTrack: currentTrack
+      }
+
+      // Notifier l'autre joueur
+      const otherPlayers = room.players.filter(p => p.id !== socket.id)
+      otherPlayers.forEach(p => {
+        io.to(p.id).emit('opponent-ready')
+      })
+
+      // Si les deux joueurs ont répondu, envoyer les résultats
+      if (Object.keys(room.blindtestSubmissions).length === 2) {
+        io.to(roomId).emit('blindtest-round-result', {
+          submissions: room.blindtestSubmissions,
+          scores: room.scores,
+          currentTrack: currentTrack
+        })
+      } else {
+        // Envoyer le résultat individuel
+        socket.emit('blindtest-answer-result', {
+          nameCorrect,
+          artistCorrect,
+          points,
+          correctTrack: currentTrack
+        })
+      }
+    }
+  })
+
+  socket.on('blindtest-next-track', ({ roomId }) => {
+    const room = rooms.get(roomId)
+    if (room && room.mode === 'blindtest') {
+      if (!room.blindtestReadyForNext.includes(socket.id)) {
+        room.blindtestReadyForNext.push(socket.id)
+      }
+
+      io.to(roomId).emit('blindtest-ready-count', room.blindtestReadyForNext.length)
+
+      if (room.blindtestReadyForNext.length === 2) {
+        room.blindtestCurrentTrackIndex++
+        room.blindtestSubmissions = {}
+        room.blindtestReadyForNext = []
+
+        if (room.blindtestCurrentTrackIndex >= room.blindtestTracks.length) {
+          // Fin du jeu
+          io.to(roomId).emit('blindtest-game-ended', { scores: room.scores })
+        } else {
+          io.to(roomId).emit('blindtest-next-track', {
+            currentIndex: room.blindtestCurrentTrackIndex,
+            track: room.blindtestTracks[room.blindtestCurrentTrackIndex]
+          })
+        }
+      }
+    }
+  })
+
+  socket.on('blindtest-adjust-score', ({ roomId, playerId, delta }) => {
+    const room = rooms.get(roomId)
+    if (room && room.mode === 'blindtest' && room.creator === socket.id) {
+      // Seul le créateur peut ajuster les scores
+      if (room.scores[playerId] !== undefined) {
+        room.scores[playerId] = Math.max(0, (room.scores[playerId] || 0) + delta)
+        io.to(roomId).emit('scores-update', room.scores)
       }
     }
   })

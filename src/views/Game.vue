@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useSocket } from '../composables/useSocket'
 import MatchMode from '../components/modes/MatchMode.vue'
 import PictionaryMode from '../components/modes/PictionaryMode.vue'
+import BlindTestMode from '../components/modes/BlindTestMode.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,7 +14,11 @@ const {
   joinRoom, leaveRoom, sendMessage, submitTracks, readyNextRound, skipRound,
   // Game 2
   game2Role, game2Track, game2Strokes, game2Result, game2ReadyCount, game2PlaylistTracks, game2NextChooser,
-  game2SetTrack, game2DrawStroke, game2ClearCanvas, game2Guess, game2NextRound
+  game2SetTrack, game2DrawStroke, game2ClearCanvas, game2Guess, game2NextRound,
+  // Blind Test
+  blindtestTracks, blindtestCurrentTrackIndex, blindtestCurrentTrack, blindtestAnswerResult,
+  blindtestRoundResult, blindtestReadyCount, blindtestGameEnded,
+  blindtestSetTracks, blindtestSubmitAnswer, blindtestNextTrack, blindtestAdjustScore
 } = useSocket()
 
 const pseudo = ref('')
@@ -24,7 +29,8 @@ const modeRef = ref(null)
 
 const modeComponents = {
   match: MatchMode,
-  game2: PictionaryMode
+  game2: PictionaryMode,
+  blindtest: BlindTestMode
 }
 
 const currentModeComponent = computed(() => {
@@ -107,6 +113,23 @@ const handleGame2Guess = (guess) => {
 const handleGame2NextRound = () => {
   game2NextRound(roomId.value)
 }
+
+// Blind Test handlers
+const handleBlindtestSetTracks = (tracks) => {
+  blindtestSetTracks(roomId.value, tracks)
+}
+
+const handleBlindtestSubmitAnswer = (trackName, artistName) => {
+  blindtestSubmitAnswer(roomId.value, trackName, artistName)
+}
+
+const handleBlindtestNextTrack = () => {
+  blindtestNextTrack(roomId.value)
+}
+
+const handleBlindtestAdjustScore = ({ playerId, delta }) => {
+  blindtestAdjustScore(roomId.value, playerId, delta)
+}
 </script>
 
 <template>
@@ -122,7 +145,10 @@ const handleGame2NextRound = () => {
         <div class="room-info">
           <span class="room-label">Room</span>
           <span class="room-code">{{ roomId }}</span>
-          <span class="mode-badge" v-if="currentMode">{{ currentMode === 'match' ? '🎯 Match' : '🎨 Pictionary'
+          <span class="mode-badge" v-if="currentMode">{{
+            currentMode === 'match' ? '🎯 Match' :
+            currentMode === 'game2' ? '🎨 Pictionary' :
+            currentMode === 'blindtest' ? '🎵 Blind Test' : ''
           }}</span>
         </div>
         <div class="scores">
@@ -139,10 +165,16 @@ const handleGame2NextRound = () => {
             :opponentReady="opponentReady" :roundResult="roundResult" :scores="scores" :readyCount="readyCount"
             :skipCount="skipCount" :isCreator="isCreator" :game2Role="game2Role" :game2Track="game2Track"
             :game2Strokes="game2Strokes" :game2Result="game2Result" :game2ReadyCount="game2ReadyCount"
-            :game2PlaylistTracks="game2PlaylistTracks" :game2NextChooser="game2NextChooser" @submit="handleSubmit"
+            :game2PlaylistTracks="game2PlaylistTracks" :game2NextChooser="game2NextChooser"
+            :blindtestTracks="blindtestTracks" :blindtestCurrentTrackIndex="blindtestCurrentTrackIndex"
+            :blindtestCurrentTrack="blindtestCurrentTrack" :blindtestAnswerResult="blindtestAnswerResult"
+            :blindtestRoundResult="blindtestRoundResult" :blindtestReadyCount="blindtestReadyCount"
+            :blindtestGameEnded="blindtestGameEnded" @submit="handleSubmit"
             @nextRound="handleNextRound" @skip="handleSkip" @game2SetTrack="handleGame2SetTrack"
             @game2DrawStroke="handleGame2DrawStroke" @game2ClearCanvas="handleGame2ClearCanvas"
-            @game2Guess="handleGame2Guess" @game2NextRound="handleGame2NextRound" />
+            @game2Guess="handleGame2Guess" @game2NextRound="handleGame2NextRound"
+            @blindtestSetTracks="handleBlindtestSetTracks" @blindtestSubmitAnswer="handleBlindtestSubmitAnswer"
+            @blindtestNextTrack="handleBlindtestNextTrack" @blindtestAdjustScore="handleBlindtestAdjustScore" />
         </div>
 
         <div class="chat-panel">

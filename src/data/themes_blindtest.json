@@ -1,0 +1,44 @@
+{
+  "categories": [
+    {
+      "name": "world's top hits",
+      "searchTerms": ["world's top hits", "world's top songs", "world's top hits songs"]
+    },
+    {
+      "name": "Pop",
+      "searchTerms": ["pop hits", "top pop", "popular pop songs"]
+    },
+    {
+      "name": "Rock",
+      "searchTerms": ["rock hits", "classic rock", "rock anthems"]
+    },
+    {
+      "name": "Hip-Hop",
+      "searchTerms": ["hip hop fr", "rap fr", "hip hop popular fr"]
+    },
+    {
+      "name": "Country",
+      "searchTerms": ["country hits", "country popular", "country songs"]
+    },
+    {
+      "name": "Indie",
+      "searchTerms": ["indie hits", "indie popular", "indie rock"]
+    },
+    {
+      "name": "Années 80",
+      "searchTerms": ["80's hits", "80's popular fr", "80's popular", "80's songs fr"]
+    },
+    {
+      "name": "Années 2000",
+      "searchTerms": ["2000's hits popular", "2000's popular pop", "2000's songs fr"]
+    },
+    {
+      "name": "Star academy",
+      "searchTerms": ["star academy hits", "star academy popular", "star academy songs"]
+    },
+    {
+      "name": "Disney",
+      "searchTerms": ["disney hits", "disney popular", "disney songs"]
+    }
+  ]
+}

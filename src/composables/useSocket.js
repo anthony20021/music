@@ -32,6 +32,15 @@ const game2ReadyCount = ref(0)
 const game2PlaylistTracks = shallowRef([])
 const game2NextChooser = ref(null) // ID du joueur qui doit choisir la playlist
 
+// Blind Test states
+const blindtestTracks = shallowRef([])
+const blindtestCurrentTrackIndex = ref(0)
+const blindtestCurrentTrack = shallowRef(null)
+const blindtestAnswerResult = shallowRef(null)
+const blindtestRoundResult = shallowRef(null)
+const blindtestReadyCount = ref(0)
+const blindtestGameEnded = ref(false)
+
 socket.on('connect', () => {
   isConnected.value = true
   socketId.value = socket.id
@@ -188,6 +197,52 @@ socket.on('game2-new-round', ({ nextChooser }) => {
   triggerRef(game2Strokes)
 })
 
+// Blind Test events
+socket.on('blindtest-tracks-set', ({ tracks, currentIndex }) => {
+  blindtestTracks.value = tracks
+  blindtestCurrentTrackIndex.value = currentIndex
+  blindtestCurrentTrack.value = tracks[currentIndex] || null
+  blindtestAnswerResult.value = null
+  blindtestRoundResult.value = null
+  blindtestReadyCount.value = 0
+  blindtestGameEnded.value = false
+  triggerRef(blindtestTracks)
+  triggerRef(blindtestCurrentTrack)
+})
+
+socket.on('blindtest-next-track', ({ currentIndex, track }) => {
+  blindtestCurrentTrackIndex.value = currentIndex
+  blindtestCurrentTrack.value = track
+  blindtestAnswerResult.value = null
+  blindtestRoundResult.value = null
+  blindtestReadyCount.value = 0
+  triggerRef(blindtestCurrentTrack)
+})
+
+socket.on('blindtest-answer-result', (result) => {
+  blindtestAnswerResult.value = result
+  scores.value = { ...scores.value, ...result.scores }
+  triggerRef(blindtestAnswerResult)
+  triggerRef(scores)
+})
+
+socket.on('blindtest-round-result', (result) => {
+  blindtestRoundResult.value = result
+  scores.value = result.scores
+  triggerRef(blindtestRoundResult)
+  triggerRef(scores)
+})
+
+socket.on('blindtest-ready-count', (count) => {
+  blindtestReadyCount.value = count
+})
+
+socket.on('blindtest-game-ended', ({ scores }) => {
+  blindtestGameEnded.value = true
+  scores.value = scores
+  triggerRef(scores)
+})
+
 export function useSocket() {
   const joinRoom = (roomId, pseudo) => {
     if (socket.connected) {
@@ -259,6 +314,23 @@ export function useSocket() {
     socket.emit('game2-next-round', { roomId })
   }
 
+  // Blind Test functions
+  const blindtestSetTracks = (roomId, tracks) => {
+    socket.emit('blindtest-set-tracks', { roomId, tracks })
+  }
+
+  const blindtestSubmitAnswer = (roomId, trackName, artistName) => {
+    socket.emit('blindtest-submit-answer', { roomId, trackName, artistName })
+  }
+
+  const blindtestNextTrack = (roomId) => {
+    socket.emit('blindtest-next-track', { roomId })
+  }
+
+  const blindtestAdjustScore = (roomId, playerId, delta) => {
+    socket.emit('blindtest-adjust-score', { roomId, playerId, delta })
+  }
+
   return {
     socket,
     socketId,
@@ -294,6 +366,18 @@ export function useSocket() {
     game2DrawStroke,
     game2ClearCanvas,
     game2Guess,
-    game2NextRound
+    game2NextRound,
+    // Blind Test
+    blindtestTracks,
+    blindtestCurrentTrackIndex,
+    blindtestCurrentTrack,
+    blindtestAnswerResult,
+    blindtestRoundResult,
+    blindtestReadyCount,
+    blindtestGameEnded,
+    blindtestSetTracks,
+    blindtestSubmitAnswer,
+    blindtestNextTrack,
+    blindtestAdjustScore
   }
 }
