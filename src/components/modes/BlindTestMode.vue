@@ -1,9 +1,9 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { getPopularTracksByCategory } from '../../services/spotify'
 import { useSocket } from '../../composables/useSocket'
 
-const { socketId, players } = useSocket()
+const { socketId, players, blindtestSetTracks: emitBlindtestSetTracks } = useSocket()
 
 const themesBlindtest = ref({ categories: [] })
 
@@ -69,6 +69,11 @@ onMounted(async () => {
     if (response.ok) {
       themesBlindtest.value = await response.json()
       console.log('Catégories chargées:', themesBlindtest.value.categories.length)
+      // Vérifier si on doit charger les tracks maintenant
+      if (props.isCreator && (!props.blindtestTracks || props.blindtestTracks.length === 0) && !isLoadingTracks.value) {
+        console.log('Démarrage du chargement des tracks après chargement des catégories...')
+        loadTracks()
+      }
     } else {
       console.error('Erreur HTTP:', response.status, response.statusText)
     }
@@ -78,15 +83,18 @@ onMounted(async () => {
 })
 
 // Watch pour charger les tracks quand le jeu démarre
-watch(() => [props.isCreator, props.blindtestTracks, themesBlindtest.value.categories.length], 
-  ([isCreator, tracks, categoriesLength]) => {
+watch(() => [props.isCreator, props.blindtestTracks?.length, themesBlindtest.value.categories?.length], 
+  async ([isCreator, tracksLength, categoriesLength]) => {
+    console.log('Watcher déclenché:', { isCreator, tracksLength, categoriesLength, isLoadingTracks: isLoadingTracks.value })
     // Charger les tracks si :
     // - On est le créateur
     // - Les tracks ne sont pas encore chargés
     // - Les catégories sont disponibles
     // - On n'est pas en train de charger
-    if (isCreator && !tracks?.length && categoriesLength > 0 && !isLoadingTracks.value) {
+    if (isCreator && (!tracksLength || tracksLength === 0) && categoriesLength > 0 && !isLoadingTracks.value) {
       console.log('Démarrage du chargement des tracks...')
+      // Attendre que le composant soit complètement monté
+      await nextTick()
       loadTracks()
     }
   },
@@ -129,38 +137,68 @@ const loadTracks = async () => {
     
     console.log(`Chargement depuis ${categories.length} catégories disponibles`)
     const allTracks = []
+    const TOTAL_TRACKS_NEEDED = 10
     
-    // Prendre des musiques de différentes catégories
+    // Mélanger les catégories pour varier
     const shuffledCategories = [...categories].sort(() => Math.random() - 0.5)
     
-    for (const category of shuffledCategories.slice(0, 5)) {
+    // Calculer combien de tracks prendre par catégorie (division euclidienne)
+    const numCategories = Math.min(shuffledCategories.length, TOTAL_TRACKS_NEEDED)
+    const tracksPerCategory = Math.floor(TOTAL_TRACKS_NEEDED / numCategories)
+    const remainder = TOTAL_TRACKS_NEEDED % numCategories
+    
+    console.log(`Répartition: ${tracksPerCategory} tracks par catégorie, ${remainder} catégories auront 1 track supplémentaire`)
+    
+    // Charger les tracks de chaque catégorie
+    for (let i = 0; i < numCategories && allTracks.length < TOTAL_TRACKS_NEEDED; i++) {
+      const category = shuffledCategories[i]
+      // Calculer combien de tracks prendre pour cette catégorie
+      const tracksToTake = tracksPerCategory + (i < remainder ? 1 : 0)
+      
       // Prendre un terme de recherche aléatoire de la catégorie
       const searchTerm = category.searchTerms[Math.floor(Math.random() * category.searchTerms.length)]
-      console.log(`Recherche dans la catégorie "${category.name}" avec le terme "${searchTerm}"`)
+      console.log(`Recherche dans la catégorie "${category.name}" avec le terme "${searchTerm}" (besoin de ${tracksToTake} track(s))`)
       
       try {
-        const tracks = await getPopularTracksByCategory(searchTerm, 5)
+        // Charger le nombre de tracks nécessaire pour cette catégorie
+        const tracks = await getPopularTracksByCategory(searchTerm, tracksToTake)
         console.log(`Trouvé ${tracks.length} track(s) pour "${category.name}"`)
         
-        // La fonction retourne déjà une track sélectionnée parmi les 10 plus populaires
-        if (tracks.length > 0) {
-          allTracks.push(...tracks)
-          console.log(`Ajouté ${tracks.length} track(s). Total: ${allTracks.length}`)
-        }
+        // Prendre exactement le nombre nécessaire (ou moins si pas assez disponible)
+        const selectedTracks = tracks.slice(0, tracksToTake)
+        allTracks.push(...selectedTracks)
+        console.log(`Ajouté ${selectedTracks.length} track(s) de "${category.name}". Total: ${allTracks.length}`)
         
-        if (allTracks.length >= 10) break
+        if (allTracks.length >= TOTAL_TRACKS_NEEDED) break
       } catch (e) {
         console.error(`Erreur chargement catégorie ${category.name}:`, e)
       }
     }
     
     // S'assurer d'avoir exactement 10 tracks
-    const finalTracks = allTracks.slice(0, 10)
+    const finalTracks = allTracks.slice(0, TOTAL_TRACKS_NEEDED)
     console.log(`Chargement terminé. ${finalTracks.length} tracks au total`)
     
     if (finalTracks.length > 0) {
-      console.log('Envoi des tracks au serveur...')
-      emit('blindtestSetTracks', finalTracks)
+      console.log('Envoi des tracks au serveur...', finalTracks.length, 'tracks')
+      console.log('Première track:', finalTracks[0]?.name, '-', finalTracks[0]?.artist)
+      console.log('Émission de l\'événement blindtestSetTracks avec', finalTracks.length, 'tracks')
+      
+      // Essayer d'abord via emit (pour compatibilité)
+      try {
+        await nextTick()
+        emit('blindtestSetTracks', finalTracks)
+        console.log('Événement blindtestSetTracks émis via emit')
+      } catch (e) {
+        console.warn('Erreur avec emit, utilisation directe du socket:', e)
+      }
+      
+      // Toujours envoyer directement via le socket pour être sûr
+      if (props.roomId) {
+        console.log('Envoi direct via socket avec roomId:', props.roomId)
+        emitBlindtestSetTracks(props.roomId, finalTracks)
+        console.log('Événement envoyé directement via socket')
+      }
     } else {
       console.error('Aucune track chargée')
       alert('Impossible de charger les musiques. Vérifiez que le serveur est démarré (npm run server) et que les identifiants Spotify sont configurés.')

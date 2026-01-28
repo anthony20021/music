@@ -267,8 +267,18 @@ export function useSocket() {
     scores.value = {}
     readyCount.value = 0
     isCreator.value = false
+    // Réinitialiser les états du blind test
+    blindtestTracks.value = []
+    blindtestCurrentTrackIndex.value = 0
+    blindtestCurrentTrack.value = null
+    blindtestAnswerResult.value = null
+    blindtestRoundResult.value = null
+    blindtestReadyCount.value = 0
+    blindtestGameEnded.value = false
     triggerRef(players)
     triggerRef(messages)
+    triggerRef(blindtestTracks)
+    triggerRef(blindtestCurrentTrack)
   }
 
   const sendMessage = (roomId, pseudo, message) => {
@@ -316,7 +326,17 @@ export function useSocket() {
 
   // Blind Test functions
   const blindtestSetTracks = (roomId, tracks) => {
+    console.log('blindtestSetTracks appelé:', { roomId, tracksCount: tracks?.length, socketConnected: socket.connected })
+    if (!socket.connected) {
+      console.warn('Socket non connecté, attente de la connexion...')
+      socket.once('connect', () => {
+        console.log('Socket connecté, envoi des tracks maintenant')
+        socket.emit('blindtest-set-tracks', { roomId, tracks })
+      })
+      return
+    }
     socket.emit('blindtest-set-tracks', { roomId, tracks })
+    console.log('Événement blindtest-set-tracks émis')
   }
 
   const blindtestSubmitAnswer = (roomId, trackName, artistName) => {

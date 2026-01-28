@@ -359,8 +359,16 @@ io.on('connection', (socket) => {
 
     // Pour le mode Pictionary, initialiser qui choisit la playlist (le créateur au début)
     if (mode === 'pictionary' || mode === 'game2') {
+      // Réinitialiser tous les états du jeu Pictionary
       room.game2NextChooser = room.creator
+      room.game2Track = null
+      room.game2Drawer = null
+      room.game2Guesser = null
+      room.game2PlaylistTracks = []
+      room.game2Ready = []
       io.to(roomId).emit('game-started', { theme: room.theme.value, themeType: room.theme.type, mode: room.mode, game2NextChooser: room.game2NextChooser })
+      // Envoyer aussi un événement pour réinitialiser les états côté client
+      io.to(roomId).emit('game2-new-round', { nextChooser: room.game2NextChooser })
     } else if (mode === 'blindtest') {
       // Pour Blind Test, envoyer l'événement de démarrage
       io.to(roomId).emit('game-started', { mode: 'blindtest' })
@@ -604,14 +612,24 @@ io.on('connection', (socket) => {
 
   // Blind Test handlers
   socket.on('blindtest-set-tracks', ({ roomId, tracks }) => {
+    console.log('blindtest-set-tracks reçu:', { roomId, tracksCount: tracks?.length })
     const room = rooms.get(roomId)
-    if (room && room.mode === 'blindtest') {
-      room.blindtestTracks = tracks
-      room.blindtestCurrentTrackIndex = 0
-      room.blindtestSubmissions = {}
-      room.blindtestReadyForNext = []
-      io.to(roomId).emit('blindtest-tracks-set', { tracks, currentIndex: 0 })
+    if (!room) {
+      console.error('Room non trouvée:', roomId)
+      return
     }
+    if (room.mode !== 'blindtest') {
+      console.error('Mode incorrect:', room.mode, 'attendu: blindtest')
+      return
+    }
+    console.log('Initialisation des tracks blindtest...')
+    room.blindtestTracks = tracks
+    room.blindtestCurrentTrackIndex = 0
+    room.blindtestSubmissions = {}
+    room.blindtestReadyForNext = []
+    const firstTrack = tracks && tracks.length > 0 ? tracks[0] : null
+    console.log('Envoi blindtest-tracks-set avec', tracks?.length, 'tracks, première track:', firstTrack?.name)
+    io.to(roomId).emit('blindtest-tracks-set', { tracks, currentIndex: 0 })
   })
 
   socket.on('blindtest-submit-answer', ({ roomId, trackName, artistName }) => {
@@ -747,8 +765,22 @@ io.on('connection', (socket) => {
       room.players = room.players.filter(p => p.id !== playerId)
 
       if (room.players.length === 0) {
+        // Supprimer la room si plus personne
         rooms.delete(roomId)
       } else {
+        // Si un joueur reste et que c'était le créateur qui est parti, transférer le créateur
+        if (room.creator === playerId && room.players.length > 0) {
+          room.creator = room.players[0].id
+        }
+        
+        // Réinitialiser les états du blind test si le jeu était en cours
+        if (room.mode === 'blindtest') {
+          room.blindtestTracks = []
+          room.blindtestCurrentTrackIndex = 0
+          room.blindtestSubmissions = {}
+          room.blindtestReadyForNext = []
+        }
+        
         io.to(roomId).emit('players-update', room.players)
       }
     }

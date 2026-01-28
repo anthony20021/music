@@ -116,7 +116,9 @@ const handleGame2NextRound = () => {
 
 // Blind Test handlers
 const handleBlindtestSetTracks = (tracks) => {
+  console.log('handleBlindtestSetTracks appelé dans Game.vue:', tracks?.length, 'tracks')
   blindtestSetTracks(roomId.value, tracks)
+  console.log('blindtestSetTracks appelé avec roomId:', roomId.value)
 }
 
 const handleBlindtestSubmitAnswer = (trackName, artistName) => {
